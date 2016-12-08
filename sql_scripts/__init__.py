@@ -37,6 +37,8 @@ class GeneratorsScript(Script):
             'station_id': 7
         }
 
+generators_script = GeneratorsScript()
+
 
 class GeneratorsScript_V(Script):
     def __init__(self):
@@ -57,18 +59,18 @@ class GeneratorsScript_V(Script):
         }
 
 
-class BidsScript(Script):
-    def __init__(self):
-        super().__init__('bids.sql')
-        self.index = {
-            'dpg_code': 0,
-            'dpg_id': 1,
-            'bid_direction': 2,
-            'hour': 3,
-            'interval_number': 4,
-            'price': 5,
-            'volume': 6
-        }
+# class BidsScript(Script):
+#     def __init__(self):
+#         super().__init__('bids.sql')
+#         self.index = {
+#             'dpg_code': 0,
+#             'dpg_id': 1,
+#             'bid_direction': 2,
+#             'hour': 3,
+#             'interval_number': 4,
+#             'price': 5,
+#             'volume': 6
+#         }
 
 
 class BidInitsScript(Script):
@@ -79,6 +81,8 @@ class BidInitsScript(Script):
             'dpg_id': 1,
             'bid_id': 2
         }
+
+bid_init_script = BidInitsScript()
 
 
 class BidInitsScript_V(Script):
@@ -101,6 +105,8 @@ class BidHoursScript(Script):
             'dpg_id': 3
         }
 
+bid_hour_script = BidHoursScript()
+
 
 class BidHoursScript_V(Script):
     def __init__(self):
@@ -121,10 +127,11 @@ class BidPairsScript(Script):
             'interval_number': 1,
             'price': 2,
             'volume': 3,
-            'bid_direction': 4,
-            'dpg_id': 5,
-            'volume_init': 6
+            'dpg_id': 4,
+            'volume_init': 5
         }
+
+bid_pair_script = BidPairsScript()
 
 
 class BidPairsScript_V(Script):
@@ -188,6 +195,8 @@ class RastrGenScript(Script):
             'node_code': 17
         }
 
+rastr_gen_script = RastrGenScript()
+
 
 class RastrGenScript_V(Script):
     def __init__(self):
@@ -228,6 +237,8 @@ class WsumgenScript(Script):
             'volume': 6
         }
 
+wsumgen_script = WsumgenScript()
+
 
 class ConsumersScript(Script):
     def __init__(self):
@@ -247,20 +258,7 @@ class ConsumersScript(Script):
             'max_forecast': 11
         }
 
-
-# class KcNodeScript(Script):
-#     def __init__(self):
-#         super().__init__('kc_node.sql')
-#         self.index = {
-#             'hour': 0,
-#             'node_code': 1,
-#             'kc': 2,
-#             'kc_by_part': 3,
-#             'kc_total': 4,
-#             'volume_node_dpg_base': 5,
-#             'volume_node_dpg': 6,
-#             'dpg_id': 7
-#         }
+consumers_script = ConsumersScript()
 
 
 class MaxBidPriceScript(Script):
@@ -271,6 +269,8 @@ class MaxBidPriceScript(Script):
             'max_bid_price': 1
         }
 
+max_bid_price_script = MaxBidPriceScript()
+
 
 class NodesScript(Script):
     def __init__(self):
@@ -278,7 +278,7 @@ class NodesScript(Script):
         self.index = {
             'hour': 0,
             'node_code': 1,
-            'area': 2,
+            'area_code': 2,
             'state': 3,
             'type': 4,
             'nominal_voltage': 5,
@@ -301,6 +301,8 @@ class NodesScript(Script):
             'b_shr': 22
         }
 
+nodes_script = NodesScript()
+
 
 class NodesScript_V(Script):
     def __init__(self):
@@ -308,7 +310,7 @@ class NodesScript_V(Script):
         self.index = {
             'hour': 0,
             'node_code': 1,
-            'area': 2,
+            'area_code': 2,
             'state': 3,
             'type': 4,
             'nominal_voltage': 5,
@@ -342,6 +344,8 @@ class ImpexAreaScript(Script):
             'optimized': 3
         }
 
+impex_area_script = ImpexAreaScript()
+
 
 class RastrLoadScript(Script):
     def __init__(self):
@@ -355,6 +359,8 @@ class RastrLoadScript(Script):
             'node_state': 5
         }
 
+rastr_load_script = RastrLoadScript()
+
 
 class RastrConsumerScript(Script):
     def __init__(self):
@@ -366,14 +372,20 @@ class RastrConsumerScript(Script):
             'pdem': 3
         }
 
+rastr_consumer_script = RastrConsumerScript()
+
+
 class DisqualifiedDataScript(Script):
     def __init__(self):
         super().__init__('disqualified_data.sql')
         self.index = {
             'dpg_id': 0,
-            'fed_station_cons': 1,
-            'attached_supplies_gen': 2
+            'dpg_code': 1,
+            'fed_station_cons': 2,
+            'attached_supplies_gen': 3
         }
+
+disqualified_data_script = DisqualifiedDataScript()
 
 
 class RastrAreaScript(Script):
@@ -385,6 +397,8 @@ class RastrAreaScript(Script):
             'losses': 2,
             'load_losses': 3
         }
+
+rastr_areas_script = RastrAreaScript()
 
 
 class LinesScript(Script):
@@ -409,6 +423,8 @@ class LinesScript(Script):
             'area': 15,
             'losses': 16
         }
+
+lines_script = LinesScript()
 
 
 class LinesScript_V(Script):
@@ -443,6 +459,8 @@ class RgeGroupsScript(Script):
             'rge_code': 1
         }
 
+rge_groups_script = RgeGroupsScript()
+
 
 class PReservesScript(Script):
     def __init__(self):
@@ -454,6 +472,8 @@ class PReservesScript(Script):
             'p_min': 3,
             'p_max': 4
         }
+
+preserves_script = PReservesScript()
 
 
 class ImpexDpgsScript(Script):
@@ -469,18 +489,22 @@ class ImpexDpgsScript(Script):
             'is_unpriced_zone': 6
         }
 
+impex_dpgs_script = ImpexDpgsScript()
+
 
 class SectionsScript(Script):
     def __init__(self):
         super().__init__('sections.sql')
         self.index = {
             'hour': 0,
-            'section_code': 1,
+            'code': 1,
             'p_max': 2,
             'p_min': 3,
             'state': 4,
             'type': 5
         }
+
+sections_script = SectionsScript()
 
 
 class LineGroupsScript(Script):
@@ -495,6 +519,8 @@ class LineGroupsScript(Script):
             'div': 5
         }
 
+line_groups_script = LineGroupsScript()
+
 
 class GeneratorsLastHourScript(Script):
     """docstring for GeneratorsLastHourScript."""
@@ -504,6 +530,8 @@ class GeneratorsLastHourScript(Script):
             'rge_code': 0,
             'volume': 1
         }
+
+generators_last_hour_script = GeneratorsLastHourScript()
 
 
 class SettingsScript(Script):
@@ -529,6 +557,8 @@ class DGUsScript(Script):
             'fixed_power': 3
         }
 
+dgus_script = DGUsScript()
+
 
 class DGUsScript_V(Script):
     def __init__(self):
@@ -552,6 +582,8 @@ class StationsScript(Script):
             'category': 3
         }
 
+stations_script = StationsScript()
+
 
 class StationsScript_V(Script):
     """docstring for StationsScript."""
@@ -570,11 +602,15 @@ class GUsScript(Script):
     def __init__(self):
         super().__init__('gu.sql')
         self.index = {
-            'code': 0,
-            'dgu_id': 1,
-            'fuel_type_list': 2,
-            'fixed_power': 3
+            'id': 0,
+            'code': 1,
+            'dgu_id': 2,
+            'fuel_type_list': 3,
+            'fixed_power': 4
         }
+
+gus_script = GUsScript()
+
 
 class GUsScript_V(Script):
     """docstring"""
@@ -605,6 +641,8 @@ class NBlockScript(Script):
             'is_sysgen': 10,
             'repair': 11
         }
+
+nblock_script = NBlockScript()
 
 
 class NBlockScript_V(Script):
