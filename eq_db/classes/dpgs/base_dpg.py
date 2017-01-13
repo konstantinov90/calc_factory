@@ -1,91 +1,63 @@
-from sqlalchemy import *
-from sqlalchemy.orm import reconstructor
-from sqlalchemy.ext.declarative import declared_attr
+"""Base abstract class Dpg."""
+import abc
+from utils.subscriptable import subscriptable
+from ..meta_base import MetaBase
 
-class Dpg(object):
-    id = Column(Integer, primary_key=True)
-    code = Column(String(16), unique=True)
-    is_unpriced_zone = Column(Integer)
 
-    __table_args__ = (
-        CheckConstraint('is_unpriced_zone between 0 and 3', name='unpriced_zone_check'),
-    )
-
-    #static data
-    max_bid_prices = {}
-
-    def __init__(self, id, code, is_unpriced_zone):
-        self.id = id
-        self.code = code
-        self.is_unpriced_zone = is_unpriced_zone
-        self._init_on_load()
+class Dpg(object, metaclass=MetaBase):
+    """base abstract class Dpg"""
 
     lst = {'id': {}, 'code': {}}
-    @reconstructor
+    def __init__(self, _id, code, is_unpriced_zone, is_spot_trader):
+        self._id = _id
+        self.code = code
+        self.is_unpriced_zone = is_unpriced_zone
+        self.is_spot_trader = True if is_spot_trader else False
+        self.bid = None
+        self.distributed_bid = []
+        self._init_on_load()
+
     def _init_on_load(self):
-        if self.id not in Dpg.lst['id']:
-            Dpg.lst['id'][self.id] = self
+        """additional initialization"""
+        if self._id not in Dpg.lst['id']:
+            Dpg.lst['id'][self._id] = self
         if self.code not in Dpg.lst['code']:
             Dpg.lst['code'][self.code] = self
-        self.distributed_bid = []
 
-    def serialize(self, session):
-        session.add(self)
+    @subscriptable
+    @staticmethod
+    def by_id(item):
+        """get Dpg instance by id"""
+        return Dpg['id', item]
 
-    def recalculate(self):
-        pass
+    @subscriptable
+    @staticmethod
+    def by_code(item):
+        """get Dpg instance by code"""
+        return Dpg['code', item]
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.code)
 
-    # @staticmethod
-    # def set_max_bid_prices(max_prices):
-    #     for hour, price in max_prices:
-    #         if hour in Dpg.max_bid_prices.keys():
-    #             raise Exception('too many max prices!')
-    #         Dpg.max_bid_prices[hour] = price
-
-    # @staticmethod
-    # def get_max_bid_price(hour):
-    #     return self.max_bid_prices[hour]
+    @abc.abstractmethod
+    def distribute_bid(self):
+        """distribute bid abstract method"""
+        pass
 
     def get_distributed_bid(self):
+        """get eq_db_demands/supplies view data"""
         if not self.distributed_bid:
             self.distribute_bid()
         return self.distributed_bid
 
-    def get_con_value(self, hour, price_zone_code):
-        return 0
+    def set_bid(self, bids_list):
+        """set Bid instance"""
+        # bid = bids_list.by_dpg_id[self.code]
+        # if not bid:
+        bid = bids_list[self._id]
+        self.bid = bid
 
-    def distribute_bid(self):
-        pass
-
-    def set_station(self, station):
-        pass
-
-    def get_fixedgen_data(self):
-        return []
-
-    def get_fixedcon_data(self):
-        return []
-
-    def prepare_fixedgen_data(self, nodes_list):
-        pass
-
-    def attach_to_fed_station(self, dpg_list):
-        pass
-
-    def prepare_fixedcon_data(self):
-        pass
-
-    def attach_sections(self, sections_list):
-        pass
-
-    def set_area(self, areas_list):
-        pass
-
-    def set_consumer(self, consumers_list):
-        pass
-
-    def set_load(self, loads_list):
-        pass
+    @staticmethod
+    def check_volume(volume):
+        """check volume significant value"""
+        return volume > 1e-13

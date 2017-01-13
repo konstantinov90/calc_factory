@@ -1,22 +1,11 @@
-from sqlalchemy import *
+"""Class AreaHourData."""
 
-from utils.ORM import Base
-from sql_scripts import rastr_areas_script as ra
-
-
-class AreaHourData(Base):
-    __tablename__ = 'areas_hour_data'
-    area_code = Column(Integer, ForeignKey('areas.code'), primary_key=True)
-    hour = Column(Integer, primary_key=True)
-    losses = Column(Numeric)
-    load_losses = Column(Numeric)
-    sum_pn_retail_diff = Column(Numeric)
-    nodes_on = Column(Integer)
-
+class AreaHourData(object):
+    """class AreaHourData"""
     def __init__(self, ra_row):
-        self.area_code = ra_row[ra['area']]
-        self.hour = ra_row[ra['hour']]
-        self.losses = ra_row[ra['losses']]
-        self.load_losses = ra_row[ra['load_losses']]
+        self.hour, self.area_code, self.losses, self.load_losses = ra_row
         self.sum_pn_retail_diff = None
         self.nodes_on = None
+
+    def __repr__(self):
+        return '<AreaHourData %i: nodes_on %i>' % (self.hour, self.nodes_on)

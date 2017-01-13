@@ -1,19 +1,11 @@
-from sqlalchemy import *
-
-from utils.ORM import Base
-from sql_scripts import disqualified_data_script as dds
+"""Class DpgDisqualified."""
 
 
-class DpgDisqualified(Base):
-    __tablename__ = 'dpgs_disqualified'
-    dpg_id = Column(Integer, ForeignKey('dpg_demands.id'), primary_key=True)
-    fed_station_cons = Column(Numeric)
-    attached_supplies_gen = Column(Numeric)
-
+class DpgDisqualified(object):
+    """class DpgDisqualified"""
     def __init__(self, dds_row):
-        self.dpg_id = dds_row[dds['dpg_id']]
-        self.fed_station_cons = dds_row[dds['fed_station_cons']]
-        self.attached_supplies_gen = dds_row[dds['attached_supplies_gen']]
-
-    def serialize(self, session):
-        session.add(self)
+        self.dpg_id, _, self.fed_station_cons, self.attached_supplies_gen = dds_row
+        self.coeff = self.fed_station_cons / self.attached_supplies_gen
+                    #  if self.attached_supplies_gen else None
+        if not self.coeff:
+            raise Exception('Failed to evaluate disqualified Dpg coeff %r' % dds_row)

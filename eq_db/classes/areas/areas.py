@@ -1,56 +1,74 @@
-from sqlalchemy import *
-from sqlalchemy.orm import relationship, reconstructor
-
-from utils.ORM import Base, MetaBase
-from sql_scripts import rastr_areas_script as ra
-
-# from eq_db.classes.nodes import NodesList
+"""Class Area."""
+from operator import attrgetter
+from ..meta_base import MetaBase
 from .areas_hour_data import AreaHourData
-# from ..nodes import Node
 
 HOURCOUNT = 24
 
-class Area(Base, metaclass=MetaBase):
-    __tablename__ = 'areas'
-    code = Column(Integer, primary_key=True)
-
-    hour_data = relationship('AreaHourData', order_by='AreaHourData.hour', lazy='subquery')
-    nodes = relationship('Node', primaryjoin='Node.area_code == Area.code')
-    impex_data = relationship('ImpexArea', uselist=False, primaryjoin='Area.code == ImpexArea.area_code', foreign_keys='ImpexArea.area_code')
-    # nodes = relationship('Node', back_populates='area')
-
+class Area(object, metaclass=MetaBase):
+    """class Area"""
     def __init__(self, ra_row):
-        self.code = ra_row[ra['area']]
+        self.code = int(ra_row.area)
         self.area_hour_data = {}
-        # self.nodes = NodesList()
+        self.nodes = None
+        self.impex_data = None
+        self.dpg = None
         self._init_on_load()
 
-    @reconstructor
+    @property
+    def hour_data(self):
+        """hour_data property"""
+        return sorted(self.area_hour_data.values(), key=attrgetter('hour'))
+
+    @property
+    def p_n(self):
+        """sum p_n of all nodes"""
+        return sum(node.p_n for node in self.nodes)
+
+    def __repr__(self):
+        return '<Area %i>' % self.code
+
     def _init_on_load(self):
+        """additional initialization"""
         if self.code not in self.lst.keys():
             self.lst[self.code] = self
-        # self.sum_pn_retail_diff = [0 for hour in range(HOURCOUNT)]
-        # self.nodes_on = [0 for hour in range(HOURCOUNT)]
 
     def add_area_hour_data(self, ra_row):
-        hour = ra_row[ra['hour']]
+        """add AreaHourData instance"""
+        hour = ra_row.hour
         if hour in self.area_hour_data.keys():
             raise Exception('tried to add area %i hour twice!' % self.code)
         self.area_hour_data[hour] = AreaHourData(ra_row)
 
     def get_sum_pn_retail_diff(self, hour):
-        return sum(map(lambda node: max(node.hour_data[hour].pn - node.hour_data[hour].retail, 0) if node.hour_data[hour].state else 0, self.nodes))
+        """
+        get sum of difference between node.pn and node.retail
+        in case of negative sum return zero
+        """
+        def func(node):
+            """aux function"""
+            if node.get_node_hour_state(hour):
+                return max(node.hour_data[hour].pn - node.hour_data[hour].retail, 0)
+            else:
+                return 0
+
+        return sum(func(node) for node in self.nodes)
 
     def get_nodes_on(self, hour):
-        return sum(map(lambda node: 1 if node.hour_data[hour].state else 0, self.nodes))
+        """return number of turned on nodes in this area at particular hour"""
+        return sum(1 if node.get_node_hour_state(hour) else 0 for node in self.nodes)
 
     def attach_nodes(self, nodes_list):
-        for node in nodes_list.get_nodes_by_area(self.code):
-            self.nodes.append(node)
-            for hour, hd in node.hour_data.items():
-                self.sum_pn_retail_diff[hour] += max(hd.pn - hd.retail, 0) * hd.is_node_on()
-                self.nodes_on[hour] += hd.is_node_on()
+        """attach Node instances and set node's area and dpg properties"""
+        self.nodes = \
+            [node.set_area_and_ret(self) for node in nodes_list if node.area_code == self.code]
         for node in self.nodes:
-            for hd in node.hour_data:
-                k_distr = (max(hd.pn - hd.retail, 0) * (1 if hd.state else 0) / self.get_sum_pn_retail_diff(hd.hour)) if self.get_sum_pn_retail_diff(hd.hour) else ((hd.is_node_on() / self.get_nodes_on(hour)) if self.get_nodes_on(hour) else 0)
-                node.set_k_distr(hour, k_distr)
+            node.set_dpg(self.dpg)
+
+    def set_impex_data(self, impex_areas_list):
+        """set impex_data if any corresponding ImpexArea instance"""
+        dummy = [ia for ia in impex_areas_list if ia.area_code == self.code]
+        if len(dummy) > 1:
+            raise Exception('too many impex areas for area %i' % self.code)
+        if dummy:
+            self.impex_data = dummy[0]

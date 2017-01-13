@@ -6,3 +6,4 @@ o$node node_code
 from tsdb2.wh_rastr_generator partition (&tsid) rg--, tsdb2.wh_trader partition (&tsid) rge
 --where rge.trader_type = 103
 --and rge.trader_code = rg.o$num
+-- where hour = 0

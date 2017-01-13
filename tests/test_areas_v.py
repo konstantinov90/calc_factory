@@ -36,158 +36,158 @@ tdate = '29-05-2015'
 
 start_time = time.time()
 
-print('PriceZone %i' % len(ORM.session.query(PriceZone).all()))
-print('Area %i' % len(ORM.session.query(Area).options(ORM.FromCache('default')).all()))
-print('Node %i' % len(ORM.session.query(Node).options(ORM.FromCache('default')).order_by(Node.code).all()))
-print('Line %i' % len(ORM.session.query(Line).options(ORM.FromCache('default')).all()))
-print('Consumer %i' % len(ORM.session.query(Consumer).options(ORM.FromCache('default')).all()))
-print('Load %i' % len(ORM.session.query(Load).options(ORM.FromCache('default')).all()))
-print('DpgSupply %i' % len(ORM.session.query(DpgSupply).options(ORM.FromCache('default')).all()))
-print('DpgDemand %i' % len(ORM.session.query(DpgDemand).options(ORM.FromCache('default')).all()))
-# print('DpgDemandFSK %i' % len(ORM.session.query(DpgDemandFSK).all()))
-# print('DpgDemandSystem %i' % len(ORM.session.query(DpgDemandSystem).all()))
-# print('DpgDemandLoad %i' % len(ORM.session.query(DpgDemandLoad).all()))
-print('DpgImpex %i' % len(ORM.session.query(DpgImpex).options(ORM.FromCache('default')).all()))
-print('Station %i' % len(ORM.session.query(Station).options(ORM.FromCache('default')).all()))
-print('Dgu %i' % len(ORM.session.query(Dgu).options(ORM.FromCache('default')).all()))
-print('Gu %i' % len(ORM.session.query(Gu).options(ORM.FromCache('default')).all()))
-print('Bid %i' % len(ORM.session.query(Bid).options(ORM.FromCache('default')).all()))
-print('DguGroup %i' % len(ORM.session.query(DguGroup).options(ORM.FromCache('default')).all()))
-print('Section %i' % len(ORM.session.query(Section).options(ORM.FromCache('default')).all()))
-print('ImpexArea %i' % len(ORM.session.query(ImpexArea).options(ORM.FromCache('default')).all()))
-print('Wsumgen %i' % len(ORM.session.query(Wsumgen).options(ORM.FromCache('default')).all()))
-
-# fc = []
-# fg = []
-eq = []
-pq = []
-pv = []
-sw = []
-sh = []
-el = []
-cs = []
-crs = []
-s = []
-sl = []
-si = []
-sli = []
-eg = []
-ia = []
-es = []
-ed = []
-pzd = []
-eimp = []
-fd = []
-lh = []
-
-for dgu in Dgu:
-    d = dgu.get_last_hour_data()
-    if d:
-        lh += (d,)
-lh = sorted(lh, key=itemgetter(0))
-
-for price_zone in PriceZone:
-    pzd += (price_zone.get_consumption(),)
-pzd = sorted(pzd, key=itemgetter(0, 1))
-
-for dpg in DpgImpex:
-    eimp += dpg.get_distributed_bid()
-eimp = sorted(eimp, key=itemgetter(1, 0, 3))
-
-for wsum in Wsumgen:
-    fd += (wsum.get_fuel_data(),)
-fd = sorted(fd, key=itemgetter(0, 1))
-
-
-for impex_area in ImpexArea:
-    ia += (impex_area.get_impex_area_data(),)
-# ia = sorted(ia, key=itemgetter(2, 0, 1))
-
-if Node.ky:
-    L = len(Node.lst[Node.ky])
-else:
-    L = len(Node.lst)
-
-for i, node in enumerate(sorted(Node, key=lambda node: node.code)):
-    # fc += node.get_fixedcon_data()
-    # fg += node.get_fixedgen_data()
-    eq += node.get_eq_db_nodes_data()
-    pq += node.get_pq_data()
-    pv += node.get_pv_data()
-    sw += node.get_sw_data()
-    sh += node.get_shunt_data()
-    update_progress((i + 1) / L)
-
-if DguGroup.ky:
-    L = len(DguGroup.lst[DguGroup.ky])
-else:
-    L = len(DguGroup.lst)
-
-for i, dgu_group in enumerate(DguGroup):
-    cs += dgu_group.get_constraint_data()
-    crs += dgu_group.get_dgu_data()
-    update_progress((i + 1) / L)
-
-cs = sorted(cs, key=itemgetter(1, 0))
-crs = sorted(crs, key=itemgetter(1, 0, 2))
-
-if Dgu.ky:
-    L = len(Dgu.lst[Dgu.ky])
-else:
-    L = len(Dgu.lst)
-
-for i, dgu in enumerate(sorted(Dgu, key=lambda dgu: dgu.code)):
-    eg += dgu.get_prepared_generator_data()
-    update_progress((i + 1) / L)
-
-L = len(Dpg.lst)
-
-for i, dpg in enumerate(DpgSupply):
-    es += dpg.get_distributed_bid()
-    update_progress((i + 1) / L)
-es = sorted(es, key=itemgetter(5, 0, 6))
-
-if DpgDemand.ky:
-    L = len(DpgDemand.lst[DpgDemand.ky])
-else:
-    L = len(DpgDemand.lst)
-
-for i, dpg in enumerate(DpgDemand):
-    ed += dpg.get_distributed_bid()
-    update_progress((i + 1) / L)
-ed = sorted(ed, key=itemgetter(1, 3, 0, 2))
-
-if Section.ky:
-    L = len(Section.lst[Section.ky])
-else:
-    L = len(Section.lst)
-
-for i, section in enumerate(Section):
-    s += section.get_section_data()
-    sl += section.get_section_lines_data()
-    si += section.get_section_impex_data()
-    sli += section.get_section_lines_impex_data()
-    update_progress((i + 1) / L)
-
-s = sorted(s, key=itemgetter(1, 0))
-sl = sorted(sl, key=itemgetter(5, 2, 3, 1, 0))
-si = sorted(si, key=itemgetter(1, 0))
-sli = sorted(sli, key=itemgetter(5, 2, 3, 1, 0))
-
-if Line.ky:
-    L = len(Line.lst[Line.ky])
-else:
-    L = len(Line.lst)
-
-for i, line in enumerate(Line):
-    el += line.get_eq_db_lines_data()
-    update_progress((i + 1) / L)
-el = sorted(el, key=itemgetter(1, 2, 3, 0))
-
-print(time.time() - start_time)
-
-
-con = DB.OracleConnection()
+# print('PriceZone %i' % len(ORM.session.query(PriceZone).all()))
+# print('Area %i' % len(ORM.session.query(Area).options(ORM.FromCache('default')).all()))
+# print('Node %i' % len(ORM.session.query(Node).options(ORM.FromCache('default')).order_by(Node.code).all()))
+# print('Line %i' % len(ORM.session.query(Line).options(ORM.FromCache('default')).all()))
+# print('Consumer %i' % len(ORM.session.query(Consumer).options(ORM.FromCache('default')).all()))
+# print('Load %i' % len(ORM.session.query(Load).options(ORM.FromCache('default')).all()))
+# print('DpgSupply %i' % len(ORM.session.query(DpgSupply).options(ORM.FromCache('default')).all()))
+# print('DpgDemand %i' % len(ORM.session.query(DpgDemand).options(ORM.FromCache('default')).all()))
+# # print('DpgDemandFSK %i' % len(ORM.session.query(DpgDemandFSK).all()))
+# # print('DpgDemandSystem %i' % len(ORM.session.query(DpgDemandSystem).all()))
+# # print('DpgDemandLoad %i' % len(ORM.session.query(DpgDemandLoad).all()))
+# print('DpgImpex %i' % len(ORM.session.query(DpgImpex).options(ORM.FromCache('default')).all()))
+# print('Station %i' % len(ORM.session.query(Station).options(ORM.FromCache('default')).all()))
+# print('Dgu %i' % len(ORM.session.query(Dgu).options(ORM.FromCache('default')).all()))
+# print('Gu %i' % len(ORM.session.query(Gu).options(ORM.FromCache('default')).all()))
+# print('Bid %i' % len(ORM.session.query(Bid).options(ORM.FromCache('default')).all()))
+# print('DguGroup %i' % len(ORM.session.query(DguGroup).options(ORM.FromCache('default')).all()))
+# print('Section %i' % len(ORM.session.query(Section).options(ORM.FromCache('default')).all()))
+# print('ImpexArea %i' % len(ORM.session.query(ImpexArea).options(ORM.FromCache('default')).all()))
+# print('Wsumgen %i' % len(ORM.session.query(Wsumgen).options(ORM.FromCache('default')).all()))
+#
+# # fc = []
+# # fg = []
+# eq = []
+# pq = []
+# pv = []
+# sw = []
+# sh = []
+# el = []
+# cs = []
+# crs = []
+# s = []
+# sl = []
+# si = []
+# sli = []
+# eg = []
+# ia = []
+# es = []
+# ed = []
+# pzd = []
+# eimp = []
+# fd = []
+# lh = []
+#
+# for dgu in Dgu:
+#     d = dgu.get_last_hour_data()
+#     if d:
+#         lh += (d,)
+# lh = sorted(lh, key=itemgetter(0))
+#
+# for price_zone in PriceZone:
+#     pzd += (price_zone.get_consumption(),)
+# pzd = sorted(pzd, key=itemgetter(0, 1))
+#
+# for dpg in DpgImpex:
+#     eimp += dpg.get_distributed_bid()
+# eimp = sorted(eimp, key=itemgetter(1, 0, 3))
+#
+# for wsum in Wsumgen:
+#     fd += (wsum.get_fuel_data(),)
+# fd = sorted(fd, key=itemgetter(0, 1))
+#
+#
+# for impex_area in ImpexArea:
+#     ia += (impex_area.get_impex_area_data(),)
+# # ia = sorted(ia, key=itemgetter(2, 0, 1))
+#
+# if Node.ky:
+#     L = len(Node.lst[Node.ky])
+# else:
+#     L = len(Node.lst)
+#
+# for i, node in enumerate(sorted(Node, key=lambda node: node.code)):
+#     # fc += node.get_fixedcon_data()
+#     # fg += node.get_fixedgen_data()
+#     eq += node.get_eq_db_nodes_data()
+#     pq += node.get_pq_data()
+#     pv += node.get_pv_data()
+#     sw += node.get_sw_data()
+#     sh += node.get_shunt_data()
+#     update_progress((i + 1) / L)
+#
+# if DguGroup.ky:
+#     L = len(DguGroup.lst[DguGroup.ky])
+# else:
+#     L = len(DguGroup.lst)
+#
+# for i, dgu_group in enumerate(DguGroup):
+#     cs += dgu_group.get_constraint_data()
+#     crs += dgu_group.get_dgu_data()
+#     update_progress((i + 1) / L)
+#
+# cs = sorted(cs, key=itemgetter(1, 0))
+# crs = sorted(crs, key=itemgetter(1, 0, 2))
+#
+# if Dgu.ky:
+#     L = len(Dgu.lst[Dgu.ky])
+# else:
+#     L = len(Dgu.lst)
+#
+# for i, dgu in enumerate(sorted(Dgu, key=lambda dgu: dgu.code)):
+#     eg += dgu.get_prepared_generator_data()
+#     update_progress((i + 1) / L)
+#
+# L = len(Dpg.lst)
+#
+# for i, dpg in enumerate(DpgSupply):
+#     es += dpg.get_distributed_bid()
+#     update_progress((i + 1) / L)
+# es = sorted(es, key=itemgetter(5, 0, 6))
+#
+# if DpgDemand.ky:
+#     L = len(DpgDemand.lst[DpgDemand.ky])
+# else:
+#     L = len(DpgDemand.lst)
+#
+# for i, dpg in enumerate(DpgDemand):
+#     ed += dpg.get_distributed_bid()
+#     update_progress((i + 1) / L)
+# ed = sorted(ed, key=itemgetter(1, 3, 0, 2))
+#
+# if Section.ky:
+#     L = len(Section.lst[Section.ky])
+# else:
+#     L = len(Section.lst)
+#
+# for i, section in enumerate(Section):
+#     s += section.get_section_data()
+#     sl += section.get_section_lines_data()
+#     si += section.get_section_impex_data()
+#     sli += section.get_section_lines_impex_data()
+#     update_progress((i + 1) / L)
+#
+# s = sorted(s, key=itemgetter(1, 0))
+# sl = sorted(sl, key=itemgetter(5, 2, 3, 1, 0))
+# si = sorted(si, key=itemgetter(1, 0))
+# sli = sorted(sli, key=itemgetter(5, 2, 3, 1, 0))
+#
+# if Line.ky:
+#     L = len(Line.lst[Line.ky])
+# else:
+#     L = len(Line.lst)
+#
+# for i, line in enumerate(Line):
+#     el += line.get_eq_db_lines_data()
+#     update_progress((i + 1) / L)
+# el = sorted(el, key=itemgetter(1, 2, 3, 0))
+#
+# print(time.time() - start_time)
+#
+#
+# con = DB.OracleConnection()
 
 # # script = 'SElect hour_num, node_id, u_base, p_cons_minus_gen, q_cons, q_gen, u_max, u_min, cons, gen from tsdb2.wh_eq_db_nodes_pq partition (TS_220482901) order by node_id, hour_num'
 # #
@@ -476,32 +476,32 @@ con = DB.OracleConnection()
 
 # ORM.recreate_all()
 #
-# sections = make_sections(tsid, tdate)
-#
-# dgu_groups = make_dgu_groups(tsid, tdate)
-#
-# bids = make_bids(tsid, tdate)
-#
-# stations = make_stations(tsid, tdate)
-#
-# areas = make_areas(tsid, tdate)
-#
-# impex_areas = make_impex_areas(tsid, tdate)
-#
-# nodes = make_nodes(tsid, tdate)
-#
-# loads = make_loads(tsid, tdate)
-#
-# consumers = make_consumers(tsid, tdate)
-#
-# dpgs = make_dpgs(tsid, tdate)
-#
-# dgus = make_dgus(tsid, tdate)
-#
-# wsumgen = make_wsumgen(tsid, tdate)
-#
-# gus = make_gus(tsid, tdate)
-#
-# lines = make_lines(tsid, tdate)
-#
-# price_zones = make_price_zones()
+sections = make_sections(tsid, tdate)
+
+dgu_groups = make_dgu_groups(tsid, tdate)
+
+bids = make_bids(tsid, tdate)
+
+stations = make_stations(tsid, tdate)
+
+areas = make_areas(tsid, tdate)
+
+impex_areas = make_impex_areas(tsid, tdate)
+
+nodes = make_nodes(tsid, tdate)
+
+loads = make_loads(tsid, tdate)
+
+consumers = make_consumers(tsid, tdate)
+
+dpgs = make_dpgs(tsid, tdate)
+
+dgus = make_dgus(tsid, tdate)
+
+wsumgen = make_wsumgen(tsid, tdate)
+
+gus = make_gus(tsid, tdate)
+
+lines = make_lines(tsid, tdate)
+
+price_zones = make_price_zones()

@@ -1,51 +1,41 @@
-import time
-from utils import DB, ORM
+"""Create Station instances."""
+from utils import DB
+from utils.printer import print
+from utils.trade_session_manager import ts_manager
 from sql_scripts import stations_script as ss
+from sql_scripts import stations_script_v as ss_v
 from .stations import Station
 
+STATION_TRADER_TYPE = 102
 
-def make_stations(tsid={}, tdate=''):
-    if isinstance(tsid, int):
-        tsid = {'tsid': tsid}
-    print('making stations%s' % ((' for date %s' % tdate) if tdate else ''))
-    start_time = time.time()
-
+@ts_manager
+def make_stations(tsid):
+    """create Station instances"""
     con = DB.OracleConnection()
+    Station.clear()
 
-    stations = StationsList()
+    for new_row in con.script_cursor(ss, tsid=tsid):
+        Station(new_row)
 
-    @DB.process_cursor(con, ss, tsid)
-    def process_stations(new_row, stations_list):
-        stations_list.add_station(new_row)
+@ts_manager
+def add_stations_vertica(scenario, **kwargs):
+    """add Station instances from Vertica DB"""
+    con = DB.VerticaConnection()
+    ora_con = kwargs['ora_con']
 
-    process_stations(stations)
-    ORM.session.add_all(stations.stations_list)
-    ORM.session.commit()
+    for new_row in con.script_cursor(ss_v, scenario=scenario):
+        if Station[new_row.id]:
+            # print('vertica contains already existing station %s' % new_row.code)
+            # continue
+            raise Exception('vertica contains already existing station %s' % new_row.code)
 
-    print('%s %s seconds %s' % (15 * '-',  round(time.time() - start_time, 3), 15 * '-'))
-
-    return stations
-
-
-class StationsList(object):
-    def __init__(self):
-        self.stations_list = []
-        self.stations_list_index = {}
-
-    def __len__(self):
-        return len(self.stations_list)
-
-    def __iter__(self):
-        for s in self.stations_list:
-            yield(s)
-
-    def __getitem__(self, item):
-        if item in self.stations_list_index.keys():
-            return self.stations_list[self.stations_list_index[item]]
-        else:
-            return None
-
-    def add_station(self, ss_row):
-        station_id = ss_row[ss['id']]
-        self.stations_list_index[station_id] = len(self.stations_list)
-        self.stations_list.append(Station(ss_row))
+        if not ora_con.exec_script('''
+                    select trader_id from trader where trader_code=:trader_code
+                ''', trader_code=new_row.code):
+            ora_con.exec_insert('''
+                insert into trader(trader_id, real_trader_id, trader_code, station_type,
+                station_category, begin_date, end_date, trader_type)
+                values(:id, :id, :code, :type, :category, :tdate, :tdate, :trader_type)
+                ''', tdate=kwargs.get('target_date'),
+                    trader_type=STATION_TRADER_TYPE, **new_row._asdict())
+        print(Station(new_row))

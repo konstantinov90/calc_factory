@@ -1,17 +1,14 @@
-from sqlalchemy import Column, Integer, Numeric, ForeignKey
-from utils.ORM import Base
-
-from sql_scripts import generators_last_hour_script as glhs
+"""Class DguLastHour."""
 
 
-class DguLastHour(Base):
-    __tablename__ = 'dgus_last_hour'
-    dgu_code = Column(Integer, ForeignKey('dgus.code'), primary_key=True)
-    volume = Column(Numeric)
-
+class DguLastHour(object):
+    """class DguLastHour"""
     def __init__(self, glhs_row):
-        self.dgu_code = glhs_row[glhs['rge_code']]
-        self.volume = glhs_row[glhs['volume']]
+        self.dgu_code, self.volume = glhs_row
+
+    def __repr__(self):
+        return '<DguLastHour %i - %f>' % (self.dgu_code, self.volume)
 
     def get_data(self):
+        """get Dgu last hour data"""
         return (self.dgu_code, self.volume)

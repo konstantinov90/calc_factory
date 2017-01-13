@@ -1,113 +1,111 @@
-from utils.ORM import Base
-from sqlalchemy.orm import reconstructor
+"""Class DpgDemandLoad"""
 from .dpg_demand import DpgDemand
+from ..bids_max_prices import BidMaxPrice
 
-from sql_scripts import bid_pair_script as bps
-from sql_scripts import disqualified_data_script as ds
+FED_STATION_INTERVAL = -42
 
-
-class DpgDemandLoad(DpgDemand, Base):
-    polymorphic_identity = 'load'
-    __mapper_args__ = {
-        'polymorphic_identity': polymorphic_identity
-    }
-
-    def __init__(self, cs_row):
-        super().__init__(cs_row)
+class DpgDemandLoad(DpgDemand):
+    """class DpgDemandLoad"""
 
     lst = {'id': {}, 'code': {}}
-    @reconstructor
     def _init_on_load(self):
+        """additional initialization"""
         super()._init_on_load()
-        if self.id not in self.lst['id']:
-            self.lst['id'][self.id] = self
+        if self._id not in self.lst['id']:
+            self.lst['id'][self._id] = self
         if self.code not in self.lst['code']:
             self.lst['code'][self.code] = self
-        # self.calculate_node_load()
-        # self.calculate_dpg_node_load()
 
-    def distribute_bid(self):
-        if not self.bid:
-            return
-        for node_data in self.load.nodes_data:
-            node = node_data.node
-            for hd in node_data.hour_data:
-                prev_volume = 0
-                bid_hour = self.bid.hour_data[hd.hour]
-                if not bid_hour:
-                    continue
-
-                for bid in bid_hour.interval_data:
-                    volume = (bid.volume - prev_volume) * hd.k_distr
-                    if volume > 0:
-                        prev_volume = bid.volume
-                        interval = bid.interval_number
-                        if interval == -15:
-                            price = bid_hour.max_price.price * 3
-                        elif interval == -8:
-                            price = bid_hour.max_price.price * 2
-                        elif bid.price:
-                            price = bid.price
-                        else:
-                            price = bid_hour.max_price.price
-                        self.distributed_bid.append((
-                            hd.hour, self.consumer_code, interval, node.code,
-                            volume, price, 0 if bid.price else 1
-                        ))
-
-    def prepare_fixedcon_data(self):
-        if self.is_unpriced_zone or (not self.is_fed_station):
-            return
-        for hour, hd in self.consumer_obj.consumer_hour_data.items():
-            p_n = self.load_obj.sum_pn[hour]
+    def _distribute_fed_station(self):
+        """distribute fed station bid"""
+        for load_hd, consumer_hd in zip(self.load.hour_data, self.consumer.hour_data):
+            if load_hd.hour != consumer_hd.hour:
+                raise Exception('dpg %s data error!' % self.code)
+            hour = load_hd.hour
+            p_n = load_hd.pn
+            p_dem = consumer_hd.pdem
             if self.is_disqualified:
-                dd = [d for d in self.get_disqualified_data() if d[ds['dpg_id']] == self.id]
-                if len(dd) != 1:
-                    raise Exception('Wrong disqualified data!!!')
-                coeff = dd[0][ds['fed_station_cons']] / dd[0][ds['attached_supplies_gen']]
-
-                p_g = 0
-                for d in self.supply_dpgs:
-                    for dgu in d.dgu_list:
-                        p_g += dgu.dgu_hour_data[hour].p
-                volume = min(coeff * p_g, p_n)
-            else:
-                if min(0.25 * p_n, p_n - 110) <= hd.pdem <= max(1.5 * p_n, p_n + 110):
-                    volume = hd.pdem
+                p_g = sum(dgu.hour_data[hour].p for dpg_sup in self.supply_dpgs
+                                                    for dgu in dpg_sup.dgus)
+                if p_g:
+                    volume = min(self.disqualified_data.coeff * p_g, p_n)
                 else:
                     volume = p_n
-            for node_code, node_data in self.load_obj.nodes.items():
-                node_type = node_data['node_obj'].get_node_hour_type(hour)
-                if node_type == 0:
-                    sign = 0
-                elif node_type != 1:
-                    sign = -1
-                else:
-                    sign = 1
-                value = node_data['hour_data'][hour].node_dose / 100 * volume * sign
-                if value:
-                    self.prepared_fixedcon_data.append((
-                        hour, node_code, self.code, value
+            elif min(0.25 * p_n, p_n - 110) <= p_dem <= max(1.5 * p_n, p_n + 110):
+                volume = p_dem
+            else:
+                volume = p_n
+            for _ln in self.load.nodes_data:
+                if _ln.hour_data[hour].hour != hour:
+                    raise Exception('dpg %s data error!' % self.code)
+                value = _ln.hour_data[hour].node_dose / 100 * volume
+                if self.check_volume(value):
+                    self.distributed_bid.append((
+                        hour, 1, self.consumer_code, FED_STATION_INTERVAL,
+                        _ln.node.code, value, BidMaxPrice[hour].price * 1e6, 1
                     ))
 
+
+    def distribute_bid(self):
+        """overriden abstract method"""
+        if self.is_fed_station and not self.is_unpriced_zone:
+            self._distribute_fed_station()
+        elif self.supply_gaes:
+            self._distribute_gaes()
+        else:
+            if not self.bid or not self.is_spot_trader:
+                return
+            for node_data in self.load.nodes_data:
+                node = node_data.node
+                for _hd in node_data.hour_data:
+                    hour = _hd.hour
+                    prev_volume = 0
+                    bid_hour = self.bid[hour]
+                    if not bid_hour:
+                        continue
+
+                    for bid in bid_hour.interval_data:
+                        volume = (bid.volume - prev_volume) * _hd.k_distr
+                        if volume > 0:
+                            prev_volume = bid.volume
+                            interval = bid.interval_number
+                            if interval == -15:
+                                price = BidMaxPrice[hour].price * 3
+                            elif interval == -8:
+                                price = BidMaxPrice[hour].price * 2
+                            elif bid.price:
+                                price = bid.price
+                            else:
+                                price = BidMaxPrice[hour].price
+                            self.distributed_bid.append((
+                                hour, 1, self.consumer_code, interval, node.code,
+                                volume, price, 0 if bid.price else 1
+                            ))
+
     def recalculate(self):
+        """additional recalculation after model initialization"""
         self._calculate_node_load()
         self._calculate_dpg_node_load()
 
     def _calculate_node_load(self):
+        """add volume to pdem of Node instance"""
         if not self.load:
             return
         for node_data in self.load.nodes_data:
             node = node_data.node
-            for hd in node_data.hour_data:
-                node.add_to_pdem(hd.hour, self.get_pdem(hd.hour) * hd.k_distr)
+            for _hd in node_data.hour_data:
+                node.add_to_pdem(_hd.hour, self.get_pdem(_hd.hour) * _hd.k_distr)
 
     def _calculate_dpg_node_load(self):
+        """calculate pn and pdem share of Node instance"""
         if not self.load:
             return
         for node_data in self.load.nodes_data:
             node = node_data.node
-            for hd in node_data.hour_data:
-                hd.set_pn_dpg_node_share(node.hour_data[hd.hour].pn * ((self.get_pdem(hd.hour) * hd.k_distr / node.hour_data[hd.hour].pdem) if node.hour_data[hd.hour].pdem else 0))
-                hd.set_pdem_dpg_node_share(node.hour_data[hd.hour].pdem * ((self.get_pdem(hd.hour) * hd.k_distr / node.hour_data[hd.hour].pdem) if node.hour_data[hd.hour].pdem else 0))
-                node.add_to_retail(hd.hour, hd.pdem_dpg_node_share)
+            for _hd in node_data.hour_data:
+                node_hour = node.hour_data[_hd.hour]
+                corrected_pdem = (self.get_pdem(_hd.hour) * _hd.k_distr / node_hour.pdem) \
+                                    if node_hour.pdem else 0
+                _hd.set_pn_dpg_node_share(node_hour.pn * corrected_pdem)
+                _hd.set_pdem_dpg_node_share(node_hour.pdem * corrected_pdem)
+                node.add_to_retail(_hd.hour, _hd.pdem_dpg_node_share)

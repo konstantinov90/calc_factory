@@ -1,35 +1,26 @@
-from sqlalchemy import *
-
-from utils.ORM import Base
-from sql_scripts import rastr_load_script as rl
+"""Class LoadNodeHourData."""
 
 
-class LoadNodeHourData(Base):
-    __tablename__ = 'loads_node_hour_data'
-    id = Column(Integer, ForeignKey('loads_node_data.id'), primary_key=True)
-    hour = Column(Integer, primary_key=True)
-    pn = Column(Numeric)
-    node_dose = Column(Numeric)
-    node_state = Column(Integer)
-    k_distr = Column(Numeric)
-    pn_dpg_node_share = Column(Numeric)
-    pdem_dpg_node_share = Column(Numeric)
-
-    def __init__(self, rl_row, id):
-        self.id = id
-        self.hour = rl_row[rl['hour']]
-        self.pn = rl_row[rl['pn']]
-        self.node_dose = rl_row[rl['node_dose']]
-        self.node_state = rl_row[rl['node_state']]
+class LoadNodeHourData(object):
+    """class LoadNodeHourData"""
+    def __init__(self, rl_row, _id):
+        self.load_node_id = _id
+        self.hour, *_, self.pn, self.node_dose, self.node_state = rl_row
         self.k_distr = None
         self.pn_dpg_node_share = None
         self.pdem_dpg_node_share = None
 
+    def __repr__(self):
+        return '<LoadNodeHourData: %i>' % self.hour
+
     def set_k_distr(self, value):
+        """set k_distr for DpgDemandLoad"""
         self.k_distr = value
 
     def set_pn_dpg_node_share(self, value):
+        """set Dpg pn share for node"""
         self.pn_dpg_node_share = value
 
     def set_pdem_dpg_node_share(self, value):
+        """set Dpg pdem share for node"""
         self.pdem_dpg_node_share = value

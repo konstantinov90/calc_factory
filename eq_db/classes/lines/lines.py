@@ -1,118 +1,145 @@
-import itertools, math
-from sqlalchemy import *
-from sqlalchemy.orm import relationship, reconstructor
+"""Class Line."""
+import itertools
+import math
+from operator import attrgetter
 
-from utils.ORM import Base, MetaBase
-from sql_scripts import lines_script as ls
+from ..meta_base import MetaBase
 from .lines_hour_data import LineHourData
-from ..nodes import Node
-
-HOURCOUNT = 24
 
 
-class Line(Base, metaclass=MetaBase):
-    __tablename__ = 'lines'
-    id = Column(BigInteger, unique=True)
-    node_from_code = Column(Integer, ForeignKey('nodes.code'), primary_key=True)
-    node_to_code = Column(Integer, ForeignKey('nodes.code'), primary_key=True)
-    parallel_num = Column(Integer, primary_key=True)
-    kt_re = Column(Numeric)
-    kt_im = Column(Numeric)
-    div = Column(Numeric)
-    type = Column(Integer)
-    area = Column(Integer)
-    kt_re = Column(Numeric)
-    kt_re = Column(Numeric)
-
-    hour_data = relationship('LineHourData', back_populates='line', order_by='LineHourData.hour') #, lazy='subquery')
-    node_from = relationship('Node', primaryjoin='Node.code == Line.node_from_code')
-    node_to = relationship('Node', primaryjoin='Node.code == Line.node_to_code')
-
+class Line(object, metaclass=MetaBase):
+    """class Line"""
     seq = itertools.count()
 
     def __init__(self, ls_row):
-        self.id = next(self.seq)
-        self.node_from_code = ls_row[ls['node_from']]
-        self.node_to_code = ls_row[ls['node_to']]
-        self.parallel_num = ls_row[ls['n_par']]
-        self.kt_re = ls_row[ls['kt_re']]
-        self.kt_im = ls_row[ls['kt_im']]
-        self.div = ls_row[ls['div']]
-        self.type = ls_row[ls['type']]
-        self.area = ls_row[ls['area']]
-        self.hours = {}  # [0] * HOURCOUNT
+        self._id = next(self.seq)
+        self.node_from_code, self.node_to_code, self.parallel_num, self.kt_re, \
+            self.kt_im, self.div, self.type, self.area_code, *_ = ls_row
+        self._hour_data = {}
+        self.node_from = None
+        self.node_to = None
         self._init_on_load()
 
-    @reconstructor
+    @property
+    def hour_data(self):
+        """hour_data property"""
+        return sorted(self._hour_data.values(), key=attrgetter('hour'))
+
+    def set_nodes(self, nodes_list):
+        """connect nodes to Line instance"""
+        try:
+            self.node_from = nodes_list[self.node_from_code]
+            self.node_from.add_line(self)
+            self.node_to = nodes_list[self.node_to_code]
+            self.node_to.add_line(self)
+        except AttributeError:
+            raise Exception('line %r has no node(s)!' % self)
+
+    lines_index = {}
     def _init_on_load(self):
-        if not self.id in self.lst.keys():
-            self.lst[self.id] = self
-        # self.node_from = None
-        # self.node_to = None
+        """additional initialization (complex Line index in particular)"""
+        if not self._id in self.lst.keys():
+            self.lst[self._id] = self
+        nfc = self.node_from_code
+        ntc = self.node_to_code
+        par_num = self.parallel_num
+        if nfc in self.lines_index.keys():
+            if ntc in self.lines_index[nfc].keys():
+                if par_num in self.lines_index[nfc][ntc].keys():
+                    raise Exception('tried to add same line %i - %i n_par = %i twice!'
+                                    % (nfc, ntc, par_num))
+                else:
+                    self.lines_index[nfc][ntc][par_num] = self._id
+            else:
+                self.lines_index[nfc][ntc] = {par_num: self._id}
+        else:
+            self.lines_index[nfc] = {ntc: {par_num: self._id}}
         self.eq_db_lines_data = []
         self.group_line_div = {}
         self.group_line_flipped = {}
 
+    @classmethod
+    def clear(cls):
+        if cls.key:
+            for key in cls.lst.keys():
+                cls.lst[key] = {}
+        else:
+            cls.lst = {}
+        cls.lines_index = {}
+
     def __repr__(self):
-        return '<Line> %i -> %i npar = %i' % (self.node_from_code, self.node_to_code, self.parallel_num)
+        return '<Line %i -> %i npar = %i>' \
+                % (self.node_from_code, self.node_to_code, self.parallel_num)
 
-    def serialize(self, session):
-        session.add(self)
-        session.add_all(self.hours.values())
-        session.flush()
+    @staticmethod
+    def get_line(node_from_code, node_to_code, num_par=None):
+        """get single instance or multiple instances from complex index"""
+        if node_from_code in Line.lines_index.keys():
+            if node_to_code in Line.lines_index[node_from_code].keys():
+                # если указан номер параллели - возвращаем эту ветку
+                # иначе возвращаем подсписок всех параллелей
+                if num_par is not None:
+                    if num_par in Line.lines_index[node_from_code][node_to_code].keys():
+                        return Line[Line.lines_index[node_from_code][node_to_code][num_par]]
+                    else:
+                        return None
+                else:
+                    return [Line[Line.lines_index[node_from_code][node_to_code][n]]
+                            for n in Line.lines_index[node_from_code][node_to_code].keys()]
 
-    def attach_nodes(self, nodes_list):
-        self.node_from = nodes_list[self.node_from_code]
-        self.node_to = nodes_list[self.node_to_code]
-
-    def set_group_line_div(self, section_code, div):
-        self.group_line_div[section_code] = div
-
-    def set_group_flipped(self, section_code, flipped):
-        self.group_line_flipped[section_code] = flipped
+            else:
+                return None
+        else:
+            return None
 
     def get_line_hour_state(self, hour):
+        """get line hour data state"""
         return self.hour_data[hour].is_line_on()
 
     def add_line_hour_data(self, ls_row):
+        """add LineHourData instance"""
         self._check_hour_data(ls_row)
-        hour = ls_row[ls['hour']]
-        self.hours[hour] = LineHourData(ls_row, self.id)
+        hour = ls_row.hour
+        self._hour_data[hour] = LineHourData(ls_row, self._id)
 
     def _check_hour_data(self, ls_row):
-        for d in ['kt_re', 'kt_im', 'div', 'type', 'area']:
-            self._check_datum(d, ls_row[ls[d]])
+        """check hour data consistency"""
+        for attr in ['kt_re', 'kt_im', 'div', 'type', 'area_code']:
+            self._check_datum(attr, getattr(ls_row, attr))
 
     def _check_datum(self, attr, datum):
+        """check single property consistency"""
         if getattr(self, attr) != datum:
             raise Exception('%s not consistent for line %i - %i n_par = %i'
-                            % (attr, self.node_code_from, self.node_code_to, self.parallel_num))
+                            % (attr, self.node_from_code, self.node_to_code, self.parallel_num))
 
     def get_eq_db_lines_data(self):
+        """get eq_db_lines view data"""
         if not self.eq_db_lines_data:
             self.prepare_lines_data()
         return self.eq_db_lines_data
 
     def prepare_lines_data(self):
-        for hd in self.hour_data:
-            try:
-                if hd.state and self.node_from.get_node_hour_state(hd.hour) and self.node_to.get_node_hour_state(hd.hour):
-                    if not self.type:
-                        node_start = self.node_from_code
-                        node_finish = self.node_to_code
-                        base_coeff = 0
-                        k_pu = 0
-                    else:
-                        node_start = self.node_to_code
-                        node_finish = self.node_from_code
-                        base_coeff = self.node_to.voltage_class / self.node_from.voltage_class
-                        k_pu = math.sqrt(math.pow(self.kt_re, 2) + math.pow(self.kt_im, 2))
-                    lag = math.atan(self.kt_im / self.kt_re) if self.kt_re else 0
-
-                    self.eq_db_lines_data.append((
-                        hd.hour, node_start, node_finish, self.parallel_num, self.type,
-                        max(self.node_from.voltage_class, self.node_to.voltage_class), base_coeff,
-                        hd.r, hd.x, hd.g, -hd.b, k_pu, lag, -hd.b_from, -hd.b_to
-                    ))
-            except Exception:
+        """prepare eq_db_lines view data"""
+        for l_hd in self.hour_data:
+            if not self.node_from or not self.node_to:
                 print('ERROR! line %i-%i has no node(s)' % (self.node_from_code, self.node_to_code))
+            if l_hd.state and self.node_from.get_node_hour_state(l_hd.hour) \
+                        and self.node_to.get_node_hour_state(l_hd.hour):
+                if not self.type:
+                    node_start = self.node_from_code
+                    node_finish = self.node_to_code
+                    base_coeff = 0
+                    k_pu = 0
+                else:
+                    node_start = self.node_to_code
+                    node_finish = self.node_from_code
+                    base_coeff = self.node_to.voltage_class / self.node_from.voltage_class
+                    k_pu = math.sqrt(math.pow(self.kt_re, 2) + math.pow(self.kt_im, 2))
+                lag = math.atan(self.kt_im / self.kt_re) if self.kt_re else 0
+
+                self.eq_db_lines_data.append((
+                    l_hd.hour, node_start, node_finish, self.parallel_num, self.type,
+                    max(self.node_from.voltage_class, self.node_to.voltage_class), base_coeff,
+                    l_hd.r, l_hd.x, l_hd.g, -l_hd.b, k_pu, lag, -l_hd.b_from, -l_hd.b_to
+                ))
