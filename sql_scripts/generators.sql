@@ -1,6 +1,6 @@
 select trader_code, trader_id, price_zone_code, is_gaes, is_blocked,
 is_unpriced_zone, ownneeds_dpg_id fed_station_id, dpg_station_id station_id,
-is_spot_trader, parent_dpg_id
+is_spot_trader, parent_dpg_id, region_code
 from tsdb2.wh_trader partition (&tsid)
 where trader_type = 100
 and dpg_type = 2

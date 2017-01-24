@@ -19,7 +19,7 @@ class DpgSupply(Dpg):
     """class DpgSupply"""
     def __init__(self, gs_row):
         super().__init__(gs_row.gtp_id, gs_row.dpg_code, gs_row.is_unpriced_zone, \
-                         gs_row.is_spot_trader)
+                         gs_row.is_spot_trader, gs_row.region_code)
         self.is_gaes = True if gs_row.is_gaes else False
         self.is_blocked = True if gs_row.is_blocked else False
         self.is_pintsch_gas = None
@@ -30,6 +30,8 @@ class DpgSupply(Dpg):
         self.station = None
         self.fed_station = None
         self.dpg_demand = None
+        self.sum_pmax_lst = []
+        self.sum_pmin_lst = []
         self.prepared_fixedgen_data = []
 
     lst = {'id': {}, 'code': {}}
@@ -45,22 +47,22 @@ class DpgSupply(Dpg):
         """add Dgu instance"""
         self.dgus.append(dgu)
 
-    def get_sum_pmin(self, hour):
-        """get sum of Dgu instances' pmin"""
-        return sum(dgu.hour_data[hour].pmin for dgu in self.dgus)
-
-    def get_sum_pmin_technological(self, hour):
-        """get sum of Dgu instances' pmin technological"""
-        return sum(dgu.hour_data[hour].pmin_technological for dgu in self.dgus)
-
-    def get_sum_preg(self, hour):
-        """get sum of Dgu instances' preg - regulation range"""
-        func = lambda dgu, _hr: dgu.hour_data[_hr].pmax - dgu.hour_data[_hr].pmin_technological
-        return sum(func(dgu, hour) for dgu in self.dgus)
-
-    def get_sum_pmax(self, hour):
-        """get sum of Dgu instances' pmax"""
-        return sum(dgu.hour_data[hour].pmax for dgu in self.dgus)
+    # def get_sum_pmin(self, hour):
+    #     """get sum of Dgu instances' pmin"""
+    #     return sum(dgu.hour_data[hour].pmin for dgu in self.dgus)
+    #
+    # def get_sum_pmin_technological(self, hour):
+    #     """get sum of Dgu instances' pmin technological"""
+    #     return sum(dgu.hour_data[hour].pmin_technological for dgu in self.dgus)
+    #
+    # def get_sum_preg(self, hour):
+    #     """get sum of Dgu instances' preg - regulation range"""
+    #     func = lambda dgu, _hr: dgu.hour_data[_hr].pmax - dgu.hour_data[_hr].pmin_technological
+    #     return sum(func(dgu, hour) for dgu in self.dgus)
+    #
+    # def get_sum_pmax(self, hour):
+    #     """get sum of Dgu instances' pmax"""
+    #     return sum(dgu.hour_data[hour].pmax for dgu in self.dgus)
 
     def set_station(self, stations_list):
         """set Station instance"""
@@ -81,6 +83,27 @@ class DpgSupply(Dpg):
         if self.dpg_demand_id:
             self.dpg_demand = dpg_list.by_id[self.dpg_demand_id]
             self.dpg_demand.add_bs_or_gaes_supply(self)
+
+    def recalculate(self):
+        """additional calculation"""
+        for hours in zip(*[dgu.hour_data for dgu in self.dgus]):
+            sum_pmax = sum(_hd.pmax for _hd in hours)
+            sum_pmin = sum(_hd.pmin for _hd in hours)
+            sum_preg = sum(_hd.pmax - _hd.pmin_technological for _hd in hours)
+            sum_pmin_technological = sum(_hd.pmin_technological for _hd in hours)
+            for _hd in hours:
+                _hd.kg_min = (_hd.pmin_technological / sum_pmin_technological) \
+                               if sum_pmin_technological else None
+                _hd.kg_reg = ((_hd.pmax - _hd.pmin_technological) / sum_preg) \
+                               if sum_preg else None
+                _hd.kg = (_hd.pmax / sum_pmax) if sum_pmax else None
+            self.sum_pmax_lst.append(sum_pmax)
+            self.sum_pmin_lst.append(sum_pmin)
+        sum_fixed_power = sum(dgu.fixed_power for dgu in self.dgus)
+        for dgu in self.dgus:
+            dgu.kg_fixed = dgu.fixed_power/sum_fixed_power
+
+
 
     def distribute_bid(self):
         """overriden abstract method"""
@@ -140,21 +163,18 @@ class DpgSupply(Dpg):
                     if not self.bid[_hd.hour]:
                         continue
                     prev_volume = _hd.pmin
-                    sum_pmax = self.get_sum_pmax(_hd.hour)
-                    sum_pmin = self.get_sum_pmin(_hd.hour)
-                    sum_pmin_technological = self.get_sum_pmin_technological(_hd.hour)
-                    sum_preg = self.get_sum_preg(_hd.hour)
+                    sum_pmax = self.sum_pmax_lst[_hd.hour]
+                    sum_pmin = self.sum_pmin_lst[_hd.hour]
 
                     for bid in self.bid[_hd.hour].interval_data:
                         if sum_pmax > sum_pmin:
                             if min(bid.volume, sum_pmax) <= sum_pmin:
-                                k_distr = (_hd.pmin_technological / sum_pmin_technological) \
-                                           if sum_pmin_technological else 0
+                                k_distr = _hd.kg_min
                             else:
-                                k_distr = ((_hd.pmax - _hd.pmin_technological) / sum_preg) \
-                                           if sum_preg else 0
+                                k_distr = _hd.kg_reg
                         else:
-                            k_distr = (_hd.pmax / sum_pmax) if sum_pmax else 0
+                            k_distr = _hd.kg
+                        k_distr = k_distr if k_distr else 0
                         bid_dgu = (bid.volume - sum_pmin) * k_distr + _hd.pmin
                         volume = min(bid_dgu, _hd.pmax) - prev_volume
                         if self.check_volume(volume):

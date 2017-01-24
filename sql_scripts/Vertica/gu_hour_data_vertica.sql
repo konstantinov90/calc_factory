@@ -1,4 +1,4 @@
-select 
+select
 h.hour,
 gu.dgu_code,
 gu.gu_code,
@@ -36,7 +36,8 @@ select 19 as hour from dual union all
 select 20 as hour from dual union all
 select 21 as hour from dual union all
 select 22 as hour from dual union all
-select 23 as hour from dual 
+select 23 as hour from dual
 )h,
 dm_opr.model_gu_ts gu
-where scenario_fk = 1
+where scenario_fk = :scenario
+and inout = 1

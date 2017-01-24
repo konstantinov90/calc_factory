@@ -55,7 +55,8 @@ class _DBConnection(object):
         if tsid:
             query = query.replace('&tsid', 'TS_' + str(input_data['tsid']))
         else:
-            for match in re.finditer(r'(wh_(\w*)\s*partition\s*\(&tsid\))', query):
+            for match in re.finditer(r'(wh_(\w*)\s*partition\s*\(&tsid\))',
+                                     query, flags=re.IGNORECASE):
                 query = query.replace(match.group(1), match.group(2))
         return query, input_data
 

@@ -63,16 +63,16 @@ class DpgDemandSystem(DpgDemand):
         for area_hd in self.area.hour_data:
             hour = area_hd.hour
             p_n = sum(max(node.hour_data[hour].pn, 0) for node in self.area.nodes
-                                                      if node.hour_data[hour].state)
+                      if node.hour_data[hour].state)
             if self.is_disqualified:
-                dd = self.disqualified_data
-                if not dd.attached_supplies_gen or not dd.fed_station_cons:
+                dds = self.disqualified_data
+                if not dds.attached_supplies_gen or not dds.fed_station_cons:
                     volume = 0
                 else:
                     p_g = sum(dgu.hour_data[hour].p for dpg_sup in self.supply_dpgs
-                                                    for dgu in dpg_sup.dgus)
+                              for dgu in dpg_sup.dgus)
                     if p_g:
-                        volume = min(dd.coeff * p_g, p_n)
+                        volume = min(dds.coeff * p_g, p_n)
                     else:
                         volume = p_n
             else:
@@ -125,3 +125,8 @@ class DpgDemandSystem(DpgDemand):
                                 hour, 1, self.consumer_code, interval, node.code,
                                 volume, price, 0 if bid.price else 1
                             ))
+
+    def fill_db(self, con):
+        """fill kc_dpg_node"""
+        if not self.is_unpriced_zone or self.code in UNPRICED_AREA:
+            self.area.fill_db(con)

@@ -16,6 +16,10 @@ from .dpg_supply import DpgSupply
 from .dpg_impex import DpgImpex
 
 DPG_TRADER_TYPE = 100
+DPG_SUPPLY_TYPE = 2
+SIPR_OWNER_ID = 987654321
+PARTICIPANT_TYPE = 2
+SIPR_OWNER_CODE = 'SIPROWNE'
 
 
 @ts_manager
@@ -54,19 +58,26 @@ def add_supplies_vertica(scenario, **kwargs):
     ora_con = kwargs['ora_con']
     tdate = kwargs['target_date']
 
+    ora_con.exec_insert('''insert into trader (trader_id, real_trader_id,
+                        begin_date, end_date, trader_type, trader_code)
+                        values (:id, :id, :tdate, :tdate, :type, :code)
+                        ''', id=SIPR_OWNER_ID, tdate=tdate, type=PARTICIPANT_TYPE,
+                        code=SIPR_OWNER_CODE)
+
     for new_row in con.script_cursor(gs_v, scenario=scenario):
         if not ora_con.exec_script('''
                 select trader_id from trader where trader_code=:trader_code
                 ''', trader_code=new_row.dpg_code):
             ora_con.exec_insert('''
-                insert into trader(trader_id, real_trader_id, trader_code,
+                insert into trader (trader_id, real_trader_id, trader_code,
                 begin_date, end_date, trader_type, price_zone_code, is_gaes,
                 is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
-                is_spot_trader, parent_dpg_id)
-                values(:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
+                is_spot_trader, parent_dpg_id, dpg_type, parent_object_id, region_code)
+                values (:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
                     :price_zone_code, :is_gaes, :is_blocked, :is_unpriced_zone,
-                    :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id)
-                ''', tdate=tdate,
-                    trader_type=DPG_TRADER_TYPE, **new_row._asdict())
+                    :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id,
+                    :dpg_type, :parent_id, :region_code)
+                ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, parent_id=SIPR_OWNER_ID,
+                                dpg_type=DPG_SUPPLY_TYPE, **new_row._asdict())
 
         DpgSupply(new_row)

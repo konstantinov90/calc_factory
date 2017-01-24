@@ -72,3 +72,15 @@ class Area(object, metaclass=MetaBase):
             raise Exception('too many impex areas for area %i' % self.code)
         if dummy:
             self.impex_data = dummy[0]
+
+    def fill_db(self, con):
+        """fill kc_dpg_node"""
+        script = """INSERT into kc_dpg_node (hour, node, kc, sta, dpg_id, is_system,
+                                dpg_code, consumer2)
+                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8)"""
+        data = []
+        for node_data in self.nodes:
+            for _hd in node_data.hour_data:
+                data.append(_hd.get_insert_data() + attrgetter('_id', 'is_system', 'code', 'consumer_code')(self.dpg))
+        with con.cursor() as curs:
+            curs.executemany(script, data)

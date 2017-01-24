@@ -1,5 +1,5 @@
 select
-dpg_pk || '_' || hour as bid_hour_id,
+dpg_pk || hour as bid_hour_id,
 step,
 price,
 volume,
@@ -9,7 +9,7 @@ from dm_opr.MODEL_DPGC_BID_TS
 where scenario_fk = :scenario
 union ALL
 select
-gu_code || '_' || hour as bid_hour_id,
+gu_code || hour as bid_hour_id,
 step,
 price,
 volume,

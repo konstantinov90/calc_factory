@@ -1,5 +1,6 @@
 """Class Dgu."""
 from operator import attrgetter
+from functools import partial
 from utils.subscriptable import subscriptable
 from ..meta_base import MetaBase
 from .dgus_hour_data import DguHourData
@@ -22,6 +23,7 @@ class Dgu(object, metaclass=MetaBase):
         self.last_hour = None
         self.wsumgen = None
         self.dpg = None
+        self.kg_fixed = None
         self._init_on_load()
 
     @property
@@ -55,27 +57,54 @@ class Dgu(object, metaclass=MetaBase):
     def __repr__(self):
         return '<Dgu %i>' % self.code
 
-    def set_to_remove(self):
+    # def deplete(self):
+    #     for gu in self.gus:
+    #         if gu.is_remove:
+    #             for _hd in self.hour_data:
+    #                 _hd.deplete(gu.hour_data[_hd.hour])
+
+    def modify_state(self):
         """set instance to remove"""
-        if not self.hour_data:
+        if self.dpg.is_blocked or self.dpg.is_unpriced_zone:
             return
-        for hour in range(HOURCOUNT):
-            try:
-                if not sum(1 if gu.hour_data[hour].state else 0 if gu.hour_data else 0
-                           for gu in self.gus):
-                    self.hour_data[hour].turn_off()
-                    # print('dgu %i is turned off at hour %i' % (self.code, hour))
-            except Exception:
-                raise Exception('dgu code %i' % self.code)
+        turned_off = False
+        for _hd in self.hour_data:
+            delayed_augment = []
+            dgu_state = 0
+            for gu_hd in {_gu.hour_data[_hd.hour] for _gu in self.gus}:
+                if gu_hd.changed:
+                    if gu_hd.state:
+                        delayed_augment.append(partial(_hd.augment, gu_hd))
+                    else:
+                        _hd.deplete(gu_hd)
+                else:
+                    dgu_state += gu_hd.state
+            if not dgu_state:
+                _hd.turn_off()
+
+            for func in delayed_augment:
+                func()
+
+            if not delayed_augment:
+                if not turned_off:
+                    print('dgu %i is turned off at hour(s)' % self.code, end='')
+                    turned_off = True
+                print(' %i' % _hd.hour, end='')
+            else:
+                if not self.node.hour_data[_hd.hour].state:
+                    raise Exception('cannot turn on dgu %i in turned off node %i'
+                                    % (self.code, self.node.code))
+        if turned_off:
+            print('')
 
     def add_gu(self, gen_unit):
         """add Gu instance"""
-        if gen_unit.is_remove:
-            #  уменьшаем диапазоны регулирования для РГЕ
-            for _hd in gen_unit.hour_data:
-                self.hour_data[_hd.hour].deplete(_hd)
-        else:
-            self.gus.append(gen_unit)
+        # if gen_unit.is_remove:
+        #     #  уменьшаем диапазоны регулирования для РГЕ
+        #     for _hd in gen_unit.hour_data:
+        #         self.hour_data[_hd.hour].deplete(_hd)
+        # else:
+        self.gus.append(gen_unit)
 
     def add_dgu_hour_data(self, rgs_row):
         """add DguHourData instance"""
@@ -148,3 +177,35 @@ class Dgu(object, metaclass=MetaBase):
             self.prepared_generator_data.append((
                 _hd.hour, self.code, 0, 0, gain, drop  # , g[rgs['wmax']], g[rgs['wmin']]
             ))
+
+    def fill_db(self, con):
+        """fill kg_dpg_rge and rastr_generator"""
+        script = """INSERT into kg_dpg_rge (hour, kg, p, pmax, pmin, pminagg, dpminso,
+                                kg_min, kg_reg, dpmin_heat, dpmin_tech, dpg_id, node,
+                                rge_id, rge_code, sta, kg_fixed_power)
+                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13, :14,
+                            :15, :16, :17)"""
+        if not self.hour_data:
+            return
+        data = []
+        common_data = (self.dpg_id, self.node.code, self._id, self.code)
+        for _hd in self.hour_data:
+            node_state = self.node.get_node_hour_state(_hd.hour)
+            data.append(_hd.get_insert_data() + common_data +
+                        ((0, self.kg_fixed) if node_state else (1, None)))
+
+        attrs = attrgetter(*'''hour dgu_code pmin pmax pmin_agg pmax_agg pmin_tech
+                              pmax_tech pmin_heat pmax_heat pmin_so pmax_so p wmax
+                              wmin vgain vdrop'''.split())
+        gen_script = """INSERT into rastr_generator (hour, o$num, o$pmin, o$pmax, o$pminagg,
+                                o$pmaxagg, o$dpmintech, o$dpmaxtech, o$dpminheat,
+                                o$dpmaxheat, o$dpminso, o$dpmaxso, o$p, o$wmax, o$wmin,
+                                o$vgain, o$vdrop, o$node)
+                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13,
+                            :14, :15, :16, :17, :18)"""
+
+        with con.cursor() as curs:
+            curs.executemany(script, data)
+            curs.execute('DELETE from rastr_generator where o$num = %i' % self.code)
+            curs.executemany(gen_script, [attrs(_hd) + (self.node.code,)
+                                          for _hd in self.hour_data])

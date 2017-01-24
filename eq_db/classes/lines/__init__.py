@@ -25,9 +25,10 @@ def make_lines(tsid):
         line.add_line_hour_data(new_row)
 
 @ts_manager
-def add_lines_vertica(scenario):
+def add_lines_vertica(scenario, **kwargs):
     """add Line instances from Vertica DB"""
     con = DB.VerticaConnection()
+    ora_con = kwargs['ora_con']
 
     new_lines = []
 
@@ -36,6 +37,16 @@ def add_lines_vertica(scenario):
         line = Line.get_line(*key)
         if line and key not in new_lines:
             raise Exception('Vertica contains already existing line %i -> %i: %i' % key)
+        if not ora_con.exec_script('''
+                    SELECT O$ip, o$iq, o$np from rastr_vetv
+                    where o$ip = :ip and o$iq = :iq and o$np = :np and hour = :hour
+                ''', ip=new_row.node_from, iq=new_row.node_to, np=new_row.n_par, hour=new_row.hour):
+            ora_con.exec_insert('''
+                INSERT into rastr_vetv (target_date, hour, o$ip, o$iq, o$np, o$sta, o$r,
+                o$x, o$b, o$ktr, o$div, o$kti, o$g, o$tip, o$b_ip, o$b_iq, o$na, o$dp)
+                values (:tdate, :hour, :node_from, :node_to, :n_par, :state, :r, :x, :b,
+                :kt_re, :div, :kt_im, :g, :type, :b_from, :b_to, :area_code, :losses)
+                ''', tdate=kwargs.get('target_date'), **new_row._asdict())
         if not line:
             line = Line(new_row)
             new_lines.append(key)

@@ -5,9 +5,9 @@ from utils.printer import print
 from utils.zip_join import zip_join
 from utils.progress_bar import update_progress
 
-def csv_comparator(data, script, filename, *join_clause):
+def csv_comparator(data, script, filename, *join_clause, **kwargs):
     """comparator function"""
-    data_o = DB.OracleConnection().script_cursor(script)
+    data_o = DB.OracleConnection().script_cursor(script, **kwargs)
     print('filling %s' % filename)
     if data:
         first_row = data[0]

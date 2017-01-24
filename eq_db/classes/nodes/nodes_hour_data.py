@@ -1,4 +1,10 @@
 """Class NodeHourData."""
+from collections import namedtuple
+from operator import attrgetter
+
+FIELDS_TO_INSERT = 'hour node_code k_distr state'
+
+kc_dpg_node_data = namedtuple('kc_dpg_node_data', FIELDS_TO_INSERT)
 
 
 class NodeHourData(object):
@@ -14,6 +20,16 @@ class NodeHourData(object):
         self.retail = 0
         self.k_distr = None
         self.balance_node_code = None
+
+    def __repr__(self):
+        return '<NodeHourData: %i -> %s>' % (self.hour, ('ON' if self.state else 'OFF'))
+
+    def get_insert_data(self):
+        """get tuple to insert data to DB"""
+        self.state = not self.state
+        data =  kc_dpg_node_data(*attrgetter(*FIELDS_TO_INSERT.split())(self))
+        self.state = not self.state
+        return data
 
     def set_balance_node(self, node_code):
         """set balance node code"""

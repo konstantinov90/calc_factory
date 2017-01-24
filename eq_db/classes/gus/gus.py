@@ -8,7 +8,7 @@ class Gu(object, metaclass=MetaBase):
     """class Gu"""
     def __init__(self, gs_row):
         self.is_in_rio = True
-        self.is_remove = False
+        # self.is_remove = False
         self._id, self.code, self.dgu_id, self.fuel_types, self.fixed_power = gs_row
         if self.fuel_types:
             self.fuel_type_list = [int(fuel_type) for fuel_type in self.fuel_types.split(',')]
@@ -59,9 +59,9 @@ class Gu(object, metaclass=MetaBase):
         return '<GU id: %r / code: %r (Dgu: %r), fuel: %r, power:%r>' \
             % (self._id, self.code, self.dgu_code, self.fuel_types, self.fixed_power)
 
-    def set_to_remove(self):
-        """set Gu to remove"""
-        self.is_remove = True
+    # def set_to_remove(self):
+    #     """set Gu to remove"""
+    #     self.is_remove = True
 
     def set_parent_dgu(self, dgus_list):
         """set Dgu instance"""

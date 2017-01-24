@@ -47,6 +47,7 @@ class GeneratorsScript(Script):
             station_id
             is_spot_trader
             dpg_demand_id
+            region_code
         ''')
         self._init_tuple()
 
@@ -193,6 +194,7 @@ class ConsumersScript(Script):
             min_forecast
             max_forecast
             is_spot_trader
+            region_code
         ''')
         self._init_tuple()
 
@@ -395,6 +397,7 @@ class ImpexDpgsScript(Script):
             section_number
             direction
             is_spot_trader
+            region_code
         ''')
         self._init_tuple()
 
@@ -519,11 +522,10 @@ gus_script = GUsScript()
 
 
 class GUsScript_V(GUsScript):
-    """docstring"""
     def __init__(self):
-        super().__init__(r'Vertica\gu_v.sql')
+        super().__init__(r'Vertica\gu_vertica.sql')
 
-# gus_script_v = GUsScript_V()
+gus_script_v = GUsScript_V()
 
 
 class NBlockScript(Script):
@@ -549,8 +551,16 @@ nblock_script = NBlockScript()
 
 
 class NBlockScript_V(NBlockScript):
-    """rastr_nblock vertica script"""
     def __init__(self):
-        super().__init__(r'Vertica\nblock_v.sql')
+        super().__init__(r'Vertica\gu_hour_data_vertica.sql')
 
-# nblock_script_v = NBlockScript_V()
+nblock_script_v = NBlockScript_V()
+
+
+class BlockOut(Script):
+    def __init__(self):
+        super().__init__(r'Vertica\gu_out.sql')
+        self.index = make_index('gu_code')
+        self._init_tuple()
+
+block_out_v = BlockOut()

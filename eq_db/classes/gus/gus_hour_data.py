@@ -8,3 +8,7 @@ class GuHourData(object):
         self.pmax_t, _, self.vgain, self.vdrop, _, self.repair = ns_row
         self.state = True if ns_row.state else False
         self.is_sysgen = True if ns_row.is_sysgen else False
+        self.changed = False
+
+    def __repr__(self):
+        return '<GuHourData %i: %i>' % (self.gu_code, self.hour)

@@ -26,7 +26,7 @@ class DpgDemandLoad(DpgDemand):
             p_dem = consumer_hd.pdem
             if self.is_disqualified:
                 p_g = sum(dgu.hour_data[hour].p for dpg_sup in self.supply_dpgs
-                                                    for dgu in dpg_sup.dgus)
+                          for dgu in dpg_sup.dgus)
                 if p_g:
                     volume = min(self.disqualified_data.coeff * p_g, p_n)
                 else:
@@ -109,3 +109,21 @@ class DpgDemandLoad(DpgDemand):
                 _hd.set_pn_dpg_node_share(node_hour.pn * corrected_pdem)
                 _hd.set_pdem_dpg_node_share(node_hour.pdem * corrected_pdem)
                 node.add_to_retail(_hd.hour, _hd.pdem_dpg_node_share)
+
+    def fill_db(self, con):
+        """fill kc_dpg_node"""
+        if self.supply_gaes:
+            script = """INSERT into kc_dpg_node (hour, kc_nodedose, sta, node, dpg_id, is_system,
+                                    dpg_code)
+                        VALUES (:1, :2, :3, :4, :5, :6, :7)"""
+            data = []
+            for dgu in self.supply_gaes.dgus:
+                for _hd in dgu.hour_data:
+                    k_distr = _hd.kg if _hd.kg else dgu.kg_fixed
+                    data.append((_hd.hour, k_distr, not dgu.node.get_node_hour_state(_hd.hour),
+                                dgu.node.code, self._id, self.is_system, self.code))
+            with con.cursor() as curs:
+                curs.executemany(script, data)
+
+        elif not self.is_unpriced_zone:
+            self.load.fill_db(con)

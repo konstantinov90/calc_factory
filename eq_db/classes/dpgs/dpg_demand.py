@@ -12,8 +12,8 @@ class DpgDemand(Dpg):
     """abstract class DpgDemand"""
     def __init__(self, cs_row):
         super().__init__(cs_row.dpg_id, cs_row.dpg_code, cs_row.is_unpriced_zone, \
-                         cs_row.is_spot_trader)
-        _, self.consumer_code, *_, self.area_code, _, _, _ = cs_row
+                         cs_row.is_spot_trader, cs_row.region_code)
+        _, self.consumer_code, *_, self.area_code, _, _, _, _ = cs_row
         self.is_system = True if cs_row.is_system else False
         self.is_fed_station = True if cs_row.is_fed_station else False
         self.is_disqualified = True if cs_row.is_disqualified else False

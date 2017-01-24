@@ -8,11 +8,12 @@ class Dpg(object, metaclass=MetaBase):
     """base abstract class Dpg"""
 
     lst = {'id': {}, 'code': {}}
-    def __init__(self, _id, code, is_unpriced_zone, is_spot_trader):
+    def __init__(self, _id, code, is_unpriced_zone, is_spot_trader, region_code):
         self._id = _id
         self.code = code
         self.is_unpriced_zone = is_unpriced_zone
         self.is_spot_trader = True if is_spot_trader else False
+        self.region_code = region_code
         self.bid = None
         self.distributed_bid = []
         self._init_on_load()
