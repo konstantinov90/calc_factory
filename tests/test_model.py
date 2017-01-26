@@ -3,25 +3,27 @@ import os
 from operator import itemgetter, attrgetter
 import matlab
 import matlab.engine
+import mat4py
 from eq_db import model as m
 from utils import DB
-from utils.trade_session_manager import ts_manager
 from utils.csv_comparator import csv_comparator
 
-DO_CALCULATION = True
+DO_CALCULATION = False
 
-USE_VERTICA = True
-SAVE_MAT_FILE = DO_CALCULATION
+USE_VERTICA = False
+SAVE_MAT_FILE = True
 CALC_EQUILIBRIUM = DO_CALCULATION
 EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\178'
 COMPARE_DATA = False
 
 
 
-for target_date, *_ in DB.OracleConnection().exec_script('''
-                        SELECT target_date
+for target_date, tsid in DB.OracleConnection().exec_script('''
+                        SELECT target_date, trade_session_id
                         from tsdb2.trade_session
-                        where status = 1'''):
+                        where target_Date = to_date('31072016', 'ddmmyyyy')
+                        --where status = 1
+                        '''):
     for scenario, *_ in DB.VerticaConnection().exec_script('''
                             SELECT scenario_pk
                             from dm_opr.model_scenarios
@@ -30,7 +32,8 @@ for target_date, *_ in DB.OracleConnection().exec_script('''
 
         # tsid = 221202901
         # scenario = 1
-        tsid = None
+        # tsid = None
+        print(target_date, tsid)
         tdate = target_date.strftime('%Y-%m-%d')
         print('tdate = %s, tsid = %r, scenario = %i' % (tdate, tsid, scenario))
 
@@ -277,6 +280,46 @@ for target_date, *_ in DB.OracleConnection().exec_script('''
             ''', 'eq_db_section_lines_impex_data.csv', 5, 2, 3, 1, 0, tsid=tsid)
 
 
+        def _hourize(input_data):
+            """break data hour-wise"""
+            max_hour = max(d[0] for d in input_data)
+            ret_data = []
+            for hour in range(max_hour + 1):
+                data = [d[1:] for d in input_data if d[0] == hour]
+                ret_data.append({'InputData': [data] if len(data) > 1 else data})
+            return [ret_data]
+
+        def _hourize_group_constraints(group_data, constraint_data):
+            """break group constraint data hour-wise"""
+            max_hour = max(d[0] for d in group_data)
+            ret_data = []
+            for hour in range(max_hour + 1):
+                data = [d[1:] for d in group_data if d[0] == hour]
+                rges = []
+                for inp_d in data:
+                    rges_data = [(d[2],) for d in constraint_data if d[:2] == (hour, inp_d[0])]
+                    rges.append({'InputData': [rges_data] if len(rges_data) > 1 else rges_data})
+                ret_data.append({
+                    'InputData': [data] if len(data) > 1 else data,
+                    'Rges': rges
+                    })
+            return [ret_data]
+
+        def _transpose(input_data):
+            """transpose cell array"""
+            def aux_gen(data):
+                """aux generator"""
+                length = len(data[0])
+                ret = tuple()
+                for idx in range(length):
+                    for row in data:
+                        ret += (row[idx],)
+                        if len(ret) == length:
+                            yield ret
+                            ret = tuple()
+            return [list(aux_gen(input_data))]
+
+
         def hourize(data):
             """break data hour-wise"""
             hours = {d[0] for d in data}
@@ -307,34 +350,35 @@ for target_date, *_ in DB.OracleConnection().exec_script('''
 
         if SAVE_MAT_FILE:
             data_to_load = {
-                'Nodes': hourize(eq),
-                'NodesPQ': hourize(pq),
-                'NodesPV': hourize(pv),
-                'NodesSW': hourize(sw),
-                'Shunts': hourize(sh),
-                'Lines': hourize(el),
-                'GroupConstraints': hourize_group_constraints(cs, crs),
-                'GroupConstraintsRges': hourize(crs),
-                'Sections': hourize(s),
-                'SectionLines': hourize(sl),
-                'SectionsImpex': hourize(si),
-                'SectionLinesImpex': hourize(sli),
-                'SectionRegions': {'InputData': matlab.double(ia)},
-                'Demands': hourize(ed),
-                'Supplies': hourize(es),
-                'ImpexBids': hourize(eimp),
-                'Generators': hourize(eg),
-                'PriceZoneDemands': hourize(pzd),
-                'Fuel': {'InputData': matlab.double(fd)},
-                'GeneratorsDataLastHour': {'InputData': matlab.double(lh)},
-                'HourNumbers': list(range(24)),
-                'Settings': {'InputData': stngs}
+                'Nodes': _hourize(eq),
+                'NodesPQ': _hourize(pq),
+                'NodesPV': _hourize(pv),
+                'NodesSW': _hourize(sw),
+                'Shunts': _hourize(sh),
+                'Lines': _hourize(el),
+                'GroupConstraints': _hourize_group_constraints(cs, crs),
+                'GroupConstraintsRges': _hourize(crs),
+                'Sections': _hourize(s),
+                'SectionLines': _hourize(sl),
+                'SectionsImpex': _hourize(si),
+                'SectionLinesImpex': _hourize(sli),
+                'SectionRegions': {'InputData': [ia]},
+                'Demands': _hourize(ed),
+                'Supplies': _hourize(es),
+                'ImpexBids': _hourize(eimp),
+                'Generators': _hourize(eg),
+                'PriceZoneDemands': _hourize(pzd),
+                'Fuel': {'InputData': [fd]},
+                'GeneratorsDataLastHour': {'InputData': [lh]},
+                'HourNumbers': [{i} for i in range(24)],
+                'Settings': {'InputData': _transpose(stngs)}
             }
 
-            # mat4py.savemat(common_file_name, data_to_load)
-            eng.cd(os.getcwd(), nargout=0)
-            eng.save_mat_file(common_file_name, (data_to_load, data_to_load['Fuel']),
-                              ('HourData', 'Fuel'), nargout=0)
+            mat4py.savemat(common_file_name, {
+                'HourData': data_to_load, 'Fuel': data_to_load['Fuel']})
+            # eng.cd(os.getcwd(), nargout=0)
+            # eng.save_mat_file(common_file_name, (data_to_load, data_to_load['Fuel']),
+            #                   ('HourData', 'Fuel'), nargout=0)
 
         if CALC_EQUILIBRIUM:
             eng.cd(EQUILIBRIUM_PATH, nargout=0)

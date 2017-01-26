@@ -46,6 +46,7 @@ class _DBConnection(object):
     def _replace_trade_session_id(query, input_data):
         """replace trade_session_id in query"""
         # input_data = copy.deepcopy(input_data_src)
+
         try:
             tsid = input_data['tsid']
             del input_data['tsid']
@@ -53,7 +54,7 @@ class _DBConnection(object):
             tsid = None
 
         if tsid:
-            query = query.replace('&tsid', 'TS_' + str(input_data['tsid']))
+            query = query.replace('&tsid', 'TS_' + str(tsid))
         else:
             for match in re.finditer(r'(wh_(\w*)\s*partition\s*\(&tsid\))',
                                      query, flags=re.IGNORECASE):

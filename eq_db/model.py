@@ -60,14 +60,14 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
 
 
     ora_con = DB.OracleConnection()
-    with ora_con.cursor() as curs:
-        curs.execute("DELETE from trader where full_name is null")
-        curs.execute("DELETE from rastr_vetv where loading_protocol is null")
-        curs.execute("DELETE from rastr_node where loading_protocol is null")
-        ora_con.commit()
+    # with ora_con.cursor() as curs:
+    #     curs.execute("DELETE from trader where full_name is null")
+    #     curs.execute("DELETE from rastr_vetv where loading_protocol is null")
+    #     curs.execute("DELETE from rastr_node where loading_protocol is null")
+    #     ora_con.commit()
 
     try:
-
+        # read only!
         make_sections(tsid, tdate=tdate)
         make_dgu_groups(tsid, tdate=tdate)
         make_bids(tsid, tdate=tdate)
@@ -84,7 +84,7 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
         make_lines(tsid, tdate=tdate)
         make_price_zones(tdate=tdate)
         make_settings(tsid, tdate=tdate)
-        if use_vertica:
+        if use_vertica: # read-write operations!
             add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_stations_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_nodes_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
