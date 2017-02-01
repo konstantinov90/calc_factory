@@ -13,7 +13,7 @@ class DpgImpex(Dpg):
     def __init__(self, imp_s_row):
         super().__init__(imp_s_row.dpg_id, imp_s_row.dpg_code,
                          imp_s_row.is_unpriced_zone, imp_s_row.is_spot_trader,
-                         imp_s_row.region_code)
+                         imp_s_row.region_code, imp_s_row.price_zone_code)
         self.section_code = int(imp_s_row.section_number)
         self.direction = imp_s_row.direction
         self.section = None

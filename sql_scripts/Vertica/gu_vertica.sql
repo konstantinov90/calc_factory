@@ -1,5 +1,5 @@
 select
-gu_code,
+gu_code gu_id,
 gu_code,
 dgu_code,
 to_char(fuel_type_fk),

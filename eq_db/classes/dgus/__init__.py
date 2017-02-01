@@ -6,6 +6,7 @@ from sql_scripts import dgus_script_v as dgs_v
 from sql_scripts import rastr_gen_script as rgs
 from sql_scripts import rastr_gen_script_v as rgs_v
 from sql_scripts import generators_last_hour_script as glhs
+from sql_scripts import hydro_new_volume_script as hnvs
 from .dgus import Dgu
 
 DGU_TRADER_TYPE = 103
@@ -58,3 +59,11 @@ def add_dgus_vertica(scenario, **kwargs):
         dgu = Dgu.by_code[new_row.rge_code]
         if dgu:
             dgu.add_dgu_hour_data(new_row)
+
+    for new_row in con.script_cursor(hnvs, scenario=scenario):
+        dgu = Dgu.by_code[new_row.dgu_code]
+        if not dgu:
+            raise Exception('vertica changes volume for nonexistent dgu %i' % new_row.dgu_code)
+        dgu_hd = dgu.hour_data[new_row.hour]
+        dgu_hd.p = new_row.volume
+        dgu_hd.pmax = max(new_row.volume, dgu_hd.pmax)

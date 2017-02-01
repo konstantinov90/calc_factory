@@ -2,15 +2,15 @@ select
 h.hour,
 gu.dgu_code,
 gu.gu_code,
-0 as pmin,
-gu.volume as pmax,
-0 as pmin_t,
-gu.volume as pmax_t,
+gu.pmin ,
+gu.pmax,
+gu.PMINT as pmin_t,
+gu.PMAXT as pmax_t,
 gu.inout as state,
-gu.volume as vgain,
-gu.volume as vdrop,
-0 as is_sysgen,
-0 as repair
+gu.vgain,
+gu.vdrop,
+gu.is_sysgen,
+gu.repair
 from
 (
 select 0 as hour from dual union all

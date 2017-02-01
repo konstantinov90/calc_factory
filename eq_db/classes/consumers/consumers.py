@@ -8,6 +8,7 @@ class Consumer(object, metaclass=MetaBase):
     """class Consumer"""
     def __init__(self, rc_row):
         self.code = rc_row.consumer_code
+        self.dem_rep_ready = bool(rc_row.dem_rep_ready)
         self.consumer_hour_data = {}
         self._init_on_load()
 

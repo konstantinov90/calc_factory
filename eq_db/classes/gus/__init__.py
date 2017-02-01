@@ -54,17 +54,17 @@ def add_gus_vertica(scenario):
     #         print('Attempted to access nonexistent Gu %i!' % gu_code)
 
     # get new blocks' states from vsvgo
-    for gu_code, hour, state in _blocks_reader(scenario):
-        # try:
-        [_gu] = Gu.by_code[gu_code]
-        # except ValueError:
-        #     print('changed Gu %i is blocked!' % gu_code)
-        #     #     raise
-        #     _gu = Gu.by_code[gu_code][0]
-        gu_hd = _gu.hour_data[hour]
-        gu_hd.changed = gu_hd.state != state
-        gu_hd.state = state
-        if not gu_hd.pmax_t and state:
-            raise Exception('Gu %i has no pmax at hour %i' % (gu_code, hour))
-        # except TypeError:
-        #     print('unable to access nonexistent Gu %i!' % gu_code)
+    # for gu_code, hour, state in _blocks_reader(scenario):
+    #     # try:
+    #     [_gu] = Gu.by_code[gu_code]
+    #     # except ValueError:
+    #     #     print('changed Gu %i is blocked!' % gu_code)
+    #     #     #     raise
+    #     #     _gu = Gu.by_code[gu_code][0]
+    #     gu_hd = _gu.hour_data[hour]
+    #     gu_hd.changed = gu_hd.state != state
+    #     gu_hd.state = state
+    #     if not gu_hd.pmax_t and state:
+    #         raise Exception('Gu %i has no pmax at hour %i' % (gu_code, hour))
+    #     # except TypeError:
+    #     #     print('unable to access nonexistent Gu %i!' % gu_code)

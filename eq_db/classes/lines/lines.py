@@ -2,22 +2,23 @@
 import itertools
 import math
 from operator import attrgetter
-
+from utils.subscriptable import subscriptable
 from ..meta_base import MetaBase
 from .lines_hour_data import LineHourData
 
 
 class Line(object, metaclass=MetaBase):
     """class Line"""
-    seq = itertools.count()
+    # seq = itertools.count()
 
     def __init__(self, ls_row):
-        self._id = next(self.seq)
+        # self._id = next(self.seq)
         self.node_from_code, self.node_to_code, self.parallel_num, self.kt_re, \
             self.kt_im, self.div, self.type, self.area_code, *_ = ls_row
         self._hour_data = {}
         self.node_from = None
         self.node_to = None
+        self.eq_db_lines_data = []
         self._init_on_load()
 
     @property
@@ -35,28 +36,50 @@ class Line(object, metaclass=MetaBase):
         except AttributeError:
             raise Exception('line %r has no node(s)!' % self)
 
-    lines_index = {}
+    # lines_index = {}
+    lst = {'key': {}, 'nodes': {}}
+    key = 'key'
     def _init_on_load(self):
         """additional initialization (complex Line index in particular)"""
-        if not self._id in self.lst.keys():
-            self.lst[self._id] = self
         nfc = self.node_from_code
         ntc = self.node_to_code
         par_num = self.parallel_num
-        if nfc in self.lines_index.keys():
-            if ntc in self.lines_index[nfc].keys():
-                if par_num in self.lines_index[nfc][ntc].keys():
-                    raise Exception('tried to add same line %i - %i n_par = %i twice!'
-                                    % (nfc, ntc, par_num))
-                else:
-                    self.lines_index[nfc][ntc][par_num] = self._id
-            else:
-                self.lines_index[nfc][ntc] = {par_num: self._id}
+        idx = (nfc, ntc, par_num)
+        if not idx in self.lst['key'].keys():
+            self.lst['key'][idx] = self
+            self.lst['nodes'].setdefault((nfc, ntc), []).append(self)
+            # self.lst.setdefault((ntc, nfc), []).append(self)
+            # self.lst.setdefault(nfc, []).append(self)
+            # self.lst.setdefault(ntc, []).append(self)
         else:
-            self.lines_index[nfc] = {ntc: {par_num: self._id}}
-        self.eq_db_lines_data = []
-        self.group_line_div = {}
-        self.group_line_flipped = {}
+            raise Exception('tried to add same line %i - %i n_par = %i twice!'
+                            % idx)
+
+        # if nfc in self.lines_index.keys():
+        #     if ntc in self.lines_index[nfc].keys():
+        #         if par_num in self.lines_index[nfc][ntc].keys():
+        #             raise Exception('tried to add same line %i - %i n_par = %i twice!'
+        #                             % (nfc, ntc, par_num))
+        #         else:
+        #             self.lines_index[nfc][ntc][par_num] = self._id
+        #     else:
+        #         self.lines_index[nfc][ntc] = {par_num: self._id}
+        # else:
+        #     self.lines_index[nfc] = {ntc: {par_num: self._id}}
+        # self.group_line_div = {}
+        # self.group_line_flipped = {}
+
+    @subscriptable
+    @staticmethod
+    def by_key(item):
+        """get single Line instance by key"""
+        return Line['key', item]
+
+    @subscriptable
+    @staticmethod
+    def by_nodes(item):
+        """get Dpg instance by code"""
+        return Line['nodes', item]
 
     @classmethod
     def clear(cls):
@@ -71,26 +94,26 @@ class Line(object, metaclass=MetaBase):
         return '<Line %i -> %i npar = %i>' \
                 % (self.node_from_code, self.node_to_code, self.parallel_num)
 
-    @staticmethod
-    def get_line(node_from_code, node_to_code, num_par=None):
-        """get single instance or multiple instances from complex index"""
-        if node_from_code in Line.lines_index.keys():
-            if node_to_code in Line.lines_index[node_from_code].keys():
-                # если указан номер параллели - возвращаем эту ветку
-                # иначе возвращаем подсписок всех параллелей
-                if num_par is not None:
-                    if num_par in Line.lines_index[node_from_code][node_to_code].keys():
-                        return Line[Line.lines_index[node_from_code][node_to_code][num_par]]
-                    else:
-                        return None
-                else:
-                    return [Line[Line.lines_index[node_from_code][node_to_code][n]]
-                            for n in Line.lines_index[node_from_code][node_to_code].keys()]
-
-            else:
-                return None
-        else:
-            return None
+    # @staticmethod
+    # def get_line(node_from_code, node_to_code, num_par=None):
+    #     """get single instance or multiple instances from complex index"""
+    #     if node_from_code in Line.lines_index.keys():
+    #         if node_to_code in Line.lines_index[node_from_code].keys():
+    #             # если указан номер параллели - возвращаем эту ветку
+    #             # иначе возвращаем подсписок всех параллелей
+    #             if num_par is not None:
+    #                 if num_par in Line.lines_index[node_from_code][node_to_code].keys():
+    #                     return Line[Line.lines_index[node_from_code][node_to_code][num_par]]
+    #                 else:
+    #                     return None
+    #             else:
+    #                 return [Line[Line.lines_index[node_from_code][node_to_code][n]]
+    #                         for n in Line.lines_index[node_from_code][node_to_code].keys()]
+    #
+    #         else:
+    #             return None
+    #     else:
+    #         return None
 
     def get_line_hour_state(self, hour):
         """get line hour data state"""
@@ -100,7 +123,7 @@ class Line(object, metaclass=MetaBase):
         """add LineHourData instance"""
         self._check_hour_data(ls_row)
         hour = ls_row.hour
-        self._hour_data[hour] = LineHourData(ls_row, self._id)
+        self._hour_data[hour] = LineHourData(ls_row, self)
 
     def _check_hour_data(self, ls_row):
         """check hour data consistency"""

@@ -19,7 +19,7 @@ def make_lines(tsid):
         node_from_code = new_row.node_from
         node_to_code = new_row.node_to
         line_par_num = new_row.n_par
-        line = Line.get_line(node_from_code, node_to_code, line_par_num)
+        line = Line.by_key[node_from_code, node_to_code, line_par_num]
         if not line:
             line = Line(new_row)
         line.add_line_hour_data(new_row)
@@ -34,7 +34,7 @@ def add_lines_vertica(scenario, **kwargs):
 
     for new_row in con.script_cursor(ls_v, scenario=scenario):
         key = (new_row.node_from, new_row.node_to, new_row.n_par)
-        line = Line.get_line(*key)
+        line = Line.by_key[key]
         if line and key not in new_lines:
             raise Exception('Vertica contains already existing line %i -> %i: %i' % key)
         if not ora_con.exec_script('''

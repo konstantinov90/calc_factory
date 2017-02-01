@@ -1,53 +1,57 @@
 """model test module"""
 import os
 from operator import itemgetter, attrgetter
-import matlab
-import matlab.engine
+try:
+    import matlab
+    import matlab.engine
+except Exception as ex:
+    print(ex)
 import mat4py
 from eq_db import model as m
 from utils import DB
 from utils.csv_comparator import csv_comparator
 
-DO_CALCULATION = False
 
-USE_VERTICA = False
+USE_VERTICA = True
 SAVE_MAT_FILE = True
-CALC_EQUILIBRIUM = DO_CALCULATION
-EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\178'
+CALC_EQUILIBRIUM = False
+EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\189'
 COMPARE_DATA = False
 
 
 
 for target_date, tsid in DB.OracleConnection().exec_script('''
-                        SELECT target_date, trade_session_id
+                        SELECT target_date, decode(status, 1, null, trade_session_id)
                         from tsdb2.trade_session
                         where target_Date = to_date('31072016', 'ddmmyyyy')
                         --where status = 1
+                        and is_main = 1
                         '''):
     for scenario, *_ in DB.VerticaConnection().exec_script('''
-                            SELECT scenario_pk
+                            SELECT distinct scenario_pk
                             from dm_opr.model_scenarios
                             where date_ts = :tdate
+                            --and scenario_pk > 6
+                            --where scenario_pk = 11
                             order by scenario_pk''', tdate=target_date):
 
-        # tsid = 221202901
-        # scenario = 1
-        # tsid = None
-        print(target_date, tsid)
         tdate = target_date.strftime('%Y-%m-%d')
         print('tdate = %s, tsid = %r, scenario = %i' % (tdate, tsid, scenario))
 
         m.initialize_model(tsid, scenario, target_date, USE_VERTICA)
         m.intertwine_model()
         if USE_VERTICA:
-            # m.modify_block_states()
             m.fill_db()
 
         ia = [tuple(i if i else 0 for i in impex_area.get_impex_area_data())
               for impex_area in m.ImpexArea
               if impex_area.get_impex_area_data()[0]]
 
-        pzd = [price_zone.get_consumption() for price_zone in m.PriceZone]
+        pzd = []
+        pz_dr = []
+        for price_zone in m.PriceZone:
+            pzd += price_zone.get_consumption()
+            pz_dr.append(price_zone.get_settings())
 
         fd = [wsum.get_fuel_data() for wsum in m.Wsumgen]
 
@@ -102,6 +106,12 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
             sli += section.get_section_lines_impex_data()
 
         stngs = [setting.get_settings_data() for setting in m.Setting]
+
+        dr = []
+        for dpg in m.DpgDemand:
+            dr += dpg.get_demand_response_data()
+
+        ps = [peak_so.get_peak_so_data() for peak_so in m.PeakSO]
 
         if COMPARE_DATA:
             ia.sort(key=itemgetter(2, 0, 1))
@@ -286,8 +296,8 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
             ret_data = []
             for hour in range(max_hour + 1):
                 data = [d[1:] for d in input_data if d[0] == hour]
-                ret_data.append({'InputData': [data] if len(data) > 1 else data})
-            return [ret_data]
+                ret_data.append([{'InputData': [data] if len(data) > 1 else data}] if data else [])
+            return ret_data
 
         def _hourize_group_constraints(group_data, constraint_data):
             """break group constraint data hour-wise"""
@@ -298,11 +308,11 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
                 rges = []
                 for inp_d in data:
                     rges_data = [(d[2],) for d in constraint_data if d[:2] == (hour, inp_d[0])]
-                    rges.append({'InputData': [rges_data] if len(rges_data) > 1 else rges_data})
-                ret_data.append({
-                    'InputData': [data] if len(data) > 1 else data,
+                    rges.append([{'InputData': [rges_data]}])
+                ret_data.append([{
+                    'InputData': [data],
                     'Rges': rges
-                    })
+                    }])
             return [ret_data]
 
         def _transpose(input_data):
@@ -319,34 +329,8 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
                             ret = tuple()
             return [list(aux_gen(input_data))]
 
-
-        def hourize(data):
-            """break data hour-wise"""
-            hours = {d[0] for d in data}
-            ret_data = [{} for hour in range(max(hours) + 1)]
-            for hour in hours:
-                out_data = matlab.double([d[1:] for d in data if d[0] == hour])
-                ret_data[hour] = {'InputData': out_data}
-            return ret_data
-
-        def hourize_group_constraints(group_data, constraint_data):
-            """break group constraint data hour-wise"""
-            hours = {d[0] for d in group_data}
-            ret_data = [[]] * (max(hours) + 1)
-            for hour in hours:
-                input_data = [d[1:] for d in group_data if d[0] == hour]
-                rges = []
-                for inp_d in input_data:
-                    rges_data = [(d[2],) for d in constraint_data if d[:2] == (hour, inp_d[0])]
-                    rges.append({'InputData': matlab.double(rges_data)})
-                ret_data[hour] = {'InputData': matlab.double(input_data), 'Rges': rges}
-
-            return ret_data
-
-        if SAVE_MAT_FILE or CALC_EQUILIBRIUM:
-            eng = matlab.engine.start_matlab()
-            common_file_name = 'common_%s_%s.mat' % ('v' if USE_VERTICA else '1', tdate)
-            print(common_file_name)
+        common_file_name = 'common_%s_%s.mat' % ('v' if USE_VERTICA else '1', tdate)
+        print(common_file_name)
 
         if SAVE_MAT_FILE:
             data_to_load = {
@@ -371,7 +355,10 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
                 'Fuel': {'InputData': [fd]},
                 'GeneratorsDataLastHour': {'InputData': [lh]},
                 'HourNumbers': [{i} for i in range(24)],
-                'Settings': {'InputData': _transpose(stngs)}
+                'Settings': {'InputData': _transpose(stngs)},
+                'DemandResponse': {'InputData': [dr]},
+                'PeakSo': {'InputData': [ps]},
+                'PriceZoneSettings': {'InputData': [pz_dr]}
             }
 
             mat4py.savemat(common_file_name, {
@@ -381,10 +368,9 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
             #                   ('HourData', 'Fuel'), nargout=0)
 
         if CALC_EQUILIBRIUM:
+            eng = matlab.engine.start_matlab()
             eng.cd(EQUILIBRIUM_PATH, nargout=0)
             if eng.fn_Run(2, os.path.join(os.getcwd(), common_file_name), nargout=1):
-                raise Exception('Equilbrium error!')
+                print(Exception('Equilbrium error!'))
             eng.fn_Run(3, nargout=1)
-
-        if SAVE_MAT_FILE or CALC_EQUILIBRIUM:
             eng.quit()

@@ -12,17 +12,18 @@ class DpgDemand(Dpg):
     """abstract class DpgDemand"""
     def __init__(self, cs_row):
         super().__init__(cs_row.dpg_id, cs_row.dpg_code, cs_row.is_unpriced_zone, \
-                         cs_row.is_spot_trader, cs_row.region_code)
-        _, self.consumer_code, *_, self.area_code, _, _, _, _ = cs_row
-        self.is_system = True if cs_row.is_system else False
-        self.is_fed_station = True if cs_row.is_fed_station else False
-        self.is_disqualified = True if cs_row.is_disqualified else False
-        self.is_fsk = True if cs_row.is_fsk else False
+                         cs_row.is_spot_trader, cs_row.region_code, cs_row.price_zone_code)
+        self.consumer_code, self.area_code, self.dem_rep_volume, self.dem_rep_hours, *_ = cs_row
+        self.is_system = bool(cs_row.is_system)
+        self.is_fed_station = bool(cs_row.is_fed_station)
+        self.is_disqualified = bool(cs_row.is_disqualified)
+        self.is_fsk = bool(cs_row.is_fsk)
         self.min_forecast = None if cs_row.min_forecast is None else (cs_row.min_forecast / 1000)
         self.max_forecast = 1000000 if cs_row.max_forecast is None else (cs_row.max_forecast / 1000)
         self.supply_dpgs = []
         self.block_stations = []
         self.prepared_fixedcon_data = []
+        self.demand_response_data = []
         self.supply_gaes = None
         self.disqualified_data = None
         self.consumer = None
@@ -37,6 +38,12 @@ class DpgDemand(Dpg):
             DpgDemand.lst['id'][self._id] = self
         if self.code not in DpgDemand.lst['code']:
             DpgDemand.lst['code'][self.code] = self
+
+    def remove(self):
+        """clear instance from class list"""
+        super().remove()
+        del DpgDemand.lst['id'][self._id]
+        del DpgDemand.lst['code'][self.code]
 
     def get_con_value(self, hour, price_zone_code):
         """get instance consumption value"""
@@ -112,3 +119,18 @@ class DpgDemand(Dpg):
                         _hd.hour, 1, self.consumer_code, GAES_INTERVAL,
                         dgu.node.code, volume, BidMaxPrice[_hd.hour].price * 1e6, 1
                     ))
+
+    def get_demand_response_data(self):
+        """get prepared demand response data"""
+        if not self.demand_response_data:
+            self.prepare_demand_response_data()
+        return self.demand_response_data
+
+    def prepare_demand_response_data(self):
+        """prepare demand response data"""
+        if self.is_unpriced_zone or self.supply_gaes:
+            return
+        if self.consumer.dem_rep_ready and self.dem_rep_volume:
+            self.demand_response_data.append((
+                self.consumer.code, self.dem_rep_volume, self.dem_rep_hours
+            ))

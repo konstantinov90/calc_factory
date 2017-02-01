@@ -4,6 +4,7 @@ import settings
 from ..meta_base import MetaBase
 from .nodes_hour_data import NodeHourData
 
+MAIN_NODE_FOR_DR = 514986
 UNPRICED_AREA = ('PCHITAZN', 'PAMUREZN')
 HOURCOUNT = 24
 
@@ -52,9 +53,12 @@ class Node(object, metaclass=MetaBase):
     def __repr__(self):
         return '<Node %i>' % self.code
 
-    def turn_on_hour(self, hour):
-        """turn node on at hour"""
-        self.hour_data[hour].turn_on()
+    # def modify_state(self):
+    #     """modify node state"""
+    #     for node_hd in self.hour_data:
+    #         if not sum(dgu.hour_data[node_hd.hour].pmax for dgu in self.dgus) \
+    #            and not node_hd.pn:
+    #             node_hd.turn_off()
 
     def set_hour_balance_node(self, hour, node_code):
         """set balance node at hour"""
@@ -118,7 +122,7 @@ class Node(object, metaclass=MetaBase):
             raise Exception('tried to insert one chunk of node hour data twice for node %i!'
                             % self.code)
         self._check_hour_data(ns_row)
-        _hd = NodeHourData(ns_row)
+        _hd = NodeHourData(ns_row, self)
         self._hour_data[hour] = _hd
         # проверка, не балансирующий ли это узел в час hour
         if _hd.is_balance_node() and _hd.is_node_on():
@@ -266,7 +270,7 @@ class Node(object, metaclass=MetaBase):
 
             self.sw_data.append((
                 _hd.hour, self.code, self.voltage_class, relative_voltage, 0, -_hd.pn,
-                max(_hd.max_q, -10000), min(_hd.min_q, 10000)
+                max(_hd.max_q, -10000), min(_hd.min_q, 10000), self.code == MAIN_NODE_FOR_DR
             ))
 
     def get_pv_data(self):
@@ -336,10 +340,16 @@ class Node(object, metaclass=MetaBase):
                     price_zone_fixed = 1
                 else:
                     price_zone_fixed = -1
+
+                if self.area and self.area.impex_data:
+                    in_price_zone = 0
+                else:
+                    in_price_zone = 1
+
                 self.eq_db_nodes_data.append((
                     _hd.hour, self.code, self.voltage_class, voltage, phase,
                     self.nominal_voltage, self.area_code if self.area_code else 0,
-                    price_zone, price_zone_fixed
+                    price_zone, price_zone_fixed, in_price_zone
                 ))
 
 

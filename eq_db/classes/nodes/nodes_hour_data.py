@@ -9,12 +9,13 @@ kc_dpg_node_data = namedtuple('kc_dpg_node_data', FIELDS_TO_INSERT)
 
 class NodeHourData(object):
     """class NodeHourData"""
-    def __init__(self, ns_row):
+    def __init__(self, ns_row, parent):
+        self.node = parent
         self.node_code, *_, self.hour, _, self.type, self.pn, \
             self.max_q, self.min_q, self.voltage, _, self.fixed_voltage, \
             self.g_shunt, self.b_shunt, self.qn, self.qg, self.pg, \
             self.q_shunt, self.p_shunt, self.b_shr = ns_row
-        self.state = True if not ns_row.state else False
+        self.state = not ns_row.state
         self.phase = 3.1415 * (((ns_row.phase + 180) % 360) - 180) / 180
         self.pdem = 0
         self.retail = 0
@@ -27,7 +28,7 @@ class NodeHourData(object):
     def get_insert_data(self):
         """get tuple to insert data to DB"""
         self.state = not self.state
-        data =  kc_dpg_node_data(*attrgetter(*FIELDS_TO_INSERT.split())(self))
+        data = kc_dpg_node_data(*attrgetter(*FIELDS_TO_INSERT.split())(self))
         self.state = not self.state
         return data
 
@@ -42,6 +43,13 @@ class NodeHourData(object):
     def turn_on(self):
         """turn node on at instance's hour"""
         self.state = True
+
+    def turn_off(self):
+        """turn node hour off"""
+        self.state = False
+        # print('%r turned off at hour %i' % (self.node, self.hour))
+        for line in self.node.lines:
+            line.hour_data[self.hour].turn_off()
 
     def is_balance_node(self):
         """determine, node is balance node at instance's hour"""

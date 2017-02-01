@@ -65,13 +65,13 @@ class Dgu(object, metaclass=MetaBase):
 
     def modify_state(self):
         """set instance to remove"""
-        if self.dpg.is_blocked or self.dpg.is_unpriced_zone:
+        if self.dpg.is_unpriced_zone:
             return
         turned_off = False
         for _hd in self.hour_data:
             delayed_augment = []
             dgu_state = 0
-            for gu_hd in {_gu.hour_data[_hd.hour] for _gu in self.gus}:
+            for gu_hd in {_gu.hour_data[_hd.hour] for _gu in self.gus if _gu.hour_data}:
                 if gu_hd.changed:
                     if gu_hd.state:
                         delayed_augment.append(partial(_hd.augment, gu_hd))
@@ -87,15 +87,15 @@ class Dgu(object, metaclass=MetaBase):
 
             if not delayed_augment:
                 if not turned_off:
-                    print('dgu %i is turned off at hour(s)' % self.code, end='')
+                    # print('dgu %i is turned off at hour(s)' % self.code, end='')
                     turned_off = True
-                print(' %i' % _hd.hour, end='')
+                # print(' %i' % _hd.hour, end='')
             else:
                 if not self.node.hour_data[_hd.hour].state:
                     raise Exception('cannot turn on dgu %i in turned off node %i'
                                     % (self.code, self.node.code))
-        if turned_off:
-            print('')
+        # if turned_off:
+        #     print('')
 
     def add_gu(self, gen_unit):
         """add Gu instance"""
@@ -116,7 +116,7 @@ class Dgu(object, metaclass=MetaBase):
             self.node_code = node_code
         if node_code != self.node_code:
             raise Exception('DGU %i node_code not consistent!' % self.code)
-        self._hour_data[hour] = DguHourData(rgs_row)
+        self._hour_data[hour] = DguHourData(rgs_row, self)
 
     def get_prepared_generator_data(self):
         """get eq_db_generators view data"""
@@ -146,10 +146,14 @@ class Dgu(object, metaclass=MetaBase):
     def set_wsumgen(self, wsumgen_list):
         """set Wsumgen instance"""
         dummy = [ws for ws in wsumgen_list if ws.dgu_code == self.code]
-        if len(dummy) > 1:
-            raise Exception('too many wsumgen for dgu %i' % self.code)
         if dummy:
-            self.wsumgen = dummy[0]
+            try:
+                (dummy,) = dummy
+            except ValueError:
+                print('too many wsumgen for dgu %i' % self.code)
+                raise
+            self.wsumgen = dummy
+            self.wsumgen.set_dgu(self)
 
     def get_last_hour_data(self):
         """get DguLastHour instance"""
@@ -175,7 +179,8 @@ class Dgu(object, metaclass=MetaBase):
             gain = 60 * (999999999 if not _hd.vgain else _hd.vgain)
             drop = 60 * (999999999 if not _hd.vdrop else _hd.vdrop)
             self.prepared_generator_data.append((
-                _hd.hour, self.code, 0, 0, gain, drop  # , g[rgs['wmax']], g[rgs['wmin']]
+                _hd.hour, self.code, 0, 0, gain, drop, _hd.pmin, _hd.pmax,
+                self.dpg.station.type, self.node.code
             ))
 
     def fill_db(self, con):

@@ -10,7 +10,8 @@ KGDPGRGE = namedtuple('kg_dpg_rge_insert', FIELDS_TO_INSERT)
 
 class DguHourData(object):
     """class DguHourData"""
-    def __init__(self, rgs_row):
+    def __init__(self, rgs_row, parent):
+        self.dgu = parent
         self.hour, self.dgu_code, self.pmin, self.pmax, self.pmin_agg, self.pmax_agg, \
             self.pmin_tech, self.pmax_tech, self.pmin_heat, self.pmax_heat, self.pmin_so, \
             self.pmax_so, self.p, self.wmax, self.wmin, self.vgain, self.vdrop, _ = rgs_row
@@ -86,3 +87,8 @@ class DguHourData(object):
         self.wmin = 0
         self.vgain = 0
         self.vdrop = 0
+
+        node_hd = self.dgu.node.hour_data[self.hour]
+        if not sum(dgu.hour_data[self.hour].pmax for dgu in self.dgu.node.dgus) \
+           and not node_hd.pn:
+            node_hd.turn_off()

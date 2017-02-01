@@ -15,9 +15,9 @@ class SectionHourLineData(object):
 
     def attach_lines(self, lines_list):
         """attach lines group"""
-        lines = lines_list.get_line(self.node_from_code, self.node_to_code)
+        lines = lines_list.by_nodes[self.node_from_code, self.node_to_code]
         if lines:
             self.lines += lines
-        lines = lines_list.get_line(self.node_to_code, self.node_from_code)
+        lines = lines_list.by_nodes[self.node_to_code, self.node_from_code]
         if lines:
             self.lines += lines

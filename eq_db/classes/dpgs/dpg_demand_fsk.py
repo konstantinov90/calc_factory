@@ -16,3 +16,6 @@ class DpgDemandFSK(DpgDemand):
 
     def distribute_bid(self):
         """overriding abstract method"""
+
+    def prepare_demand_response_data(self):
+        """prepare demand response data"""

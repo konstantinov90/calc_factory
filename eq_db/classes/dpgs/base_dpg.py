@@ -8,12 +8,13 @@ class Dpg(object, metaclass=MetaBase):
     """base abstract class Dpg"""
 
     lst = {'id': {}, 'code': {}}
-    def __init__(self, _id, code, is_unpriced_zone, is_spot_trader, region_code):
+    def __init__(self, _id, code, is_unpriced_zone, is_spot_trader, region_code, price_zone_code):
         self._id = _id
         self.code = code
         self.is_unpriced_zone = is_unpriced_zone
-        self.is_spot_trader = True if is_spot_trader else False
+        self.is_spot_trader = bool(is_spot_trader)
         self.region_code = region_code
+        self.price_zone_code = price_zone_code
         self.bid = None
         self.distributed_bid = []
         self._init_on_load()
@@ -24,6 +25,11 @@ class Dpg(object, metaclass=MetaBase):
             Dpg.lst['id'][self._id] = self
         if self.code not in Dpg.lst['code']:
             Dpg.lst['code'][self.code] = self
+
+    def remove(self):
+        """clear instance from class list"""
+        del Dpg.lst['id'][self._id]
+        del Dpg.lst['code'][self.code]
 
     @subscriptable
     @staticmethod

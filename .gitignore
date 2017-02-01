@@ -1,10 +1,6 @@
-settings.py
+/settings.py
 *.mat
 *.asv
 *.csv
 *.log
 __pycache__
-*/__pycache__
-*/*/__pycache__
-*/*/*/__pycache__
-*/*/*/*/__pycache__

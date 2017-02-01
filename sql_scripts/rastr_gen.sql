@@ -1,5 +1,19 @@
-select hour, o$num rge_code, o$pmin pmin, o$pmax pmax, o$pminagg pmin_agg,
-o$pmaxagg pmax_agg, o$dpmintech pmin_tech, o$dpmaxtech pmax_tech,
-o$dpminheat pmin_heat, o$dpmaxheat pmax_heat, o$dpminso pmin_so, o$dpmaxso pmax_so,
-o$p p, o$wmax wmax, o$wmin wmin, o$vgain vgain, o$vdrop vdrop, o$node node_code
+select hour,
+o$num rge_code,
+o$pmin pmin,
+o$pmax pmax,
+o$pminagg pmin_agg,
+o$pmaxagg pmax_agg,
+o$dpmintech pmin_tech,
+o$dpmaxtech pmax_tech,
+o$dpminheat pmin_heat,
+o$dpmaxheat pmax_heat,
+o$dpminso pmin_so,
+o$dpmaxso pmax_so,
+o$p p,
+o$wmax wmax,
+o$wmin wmin,
+o$vgain vgain,
+o$vdrop vdrop,
+o$node node_code
 from tsdb2.wh_rastr_generator_src partition (&tsid) rg

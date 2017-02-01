@@ -32,5 +32,6 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        print('watcher stopped')
         observer.stop()
     observer.join()

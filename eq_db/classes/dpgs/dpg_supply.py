@@ -19,9 +19,9 @@ class DpgSupply(Dpg):
     """class DpgSupply"""
     def __init__(self, gs_row):
         super().__init__(gs_row.gtp_id, gs_row.dpg_code, gs_row.is_unpriced_zone, \
-                         gs_row.is_spot_trader, gs_row.region_code)
-        self.is_gaes = True if gs_row.is_gaes else False
-        self.is_blocked = True if gs_row.is_blocked else False
+                         gs_row.is_spot_trader, gs_row.region_code, gs_row.price_zone_code)
+        self.is_gaes = bool(gs_row.is_gaes)
+        self.is_blocked = bool(gs_row.is_blocked)
         self.is_pintsch_gas = None
         self.fed_station_id = gs_row.fed_station_id
         self.dpg_demand_id = gs_row.dpg_demand_id
@@ -76,13 +76,17 @@ class DpgSupply(Dpg):
         """set fed station DpgDemand instance"""
         if self.fed_station_id:
             self.fed_station = dpg_list.by_id[self.fed_station_id]
-            self.fed_station.add_supply_dpg(self)
+            if self.fed_station:
+                self.fed_station.add_supply_dpg(self)
 
     def set_dpg_demand(self, dpg_list):
         """set dpg demand instance"""
         if self.dpg_demand_id:
             self.dpg_demand = dpg_list.by_id[self.dpg_demand_id]
+            # try:
             self.dpg_demand.add_bs_or_gaes_supply(self)
+            # except AttributeError:
+            #     print('dpg %s has no corresponding dpg demand %i' % (self.code, self.dpg_demand_id))
 
     def recalculate(self):
         """additional calculation"""

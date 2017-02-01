@@ -3,17 +3,18 @@ import time
 from concurrent import futures
 from itertools import chain
 
+from utils import DB
 from utils.progress_bar import update_progress
-from eq_db.classes.sections import make_sections, Section
+from eq_db.classes.sections import make_sections, add_sections_vertica, Section
 from eq_db.classes.dgu_groups import make_dgu_groups, DguGroup
 from eq_db.classes.bids import make_bids, add_bids_vertica, Bid
 from eq_db.classes.stations import make_stations, add_stations_vertica, Station
-from eq_db.classes.areas import make_areas, Area
+from eq_db.classes.areas import make_areas, add_areas_vertica, Area
 from eq_db.classes.impex_areas import make_impex_areas, ImpexArea
 from eq_db.classes.nodes import make_nodes, add_nodes_vertica, Node
 from eq_db.classes.loads import make_loads, Load
-from eq_db.classes.consumers import make_consumers, Consumer
-from eq_db.classes.dpgs import make_dpgs, add_supplies_vertica
+from eq_db.classes.consumers import make_consumers, add_consumers_vertica, Consumer
+from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica
 from eq_db.classes.dpgs.base_dpg import Dpg
 from eq_db.classes.dpgs.dpg_demand import DpgDemand
 from eq_db.classes.dpgs.dpg_demand_fsk import DpgDemandFSK
@@ -28,7 +29,7 @@ from eq_db.classes.lines import make_lines, add_lines_vertica, Line
 from eq_db.classes.price_zone import make_price_zones, PriceZone
 from eq_db.classes.settings import make_settings, Setting
 from eq_db.classes.bids_max_prices import make_bid_max_prices, BidMaxPrice
-from utils import DB
+from eq_db.classes.peak_so import make_peak_so, PeakSO
 
 # tsid = 221076901
 # scenario = 1
@@ -58,46 +59,53 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
     #
     # list(res)
 
+    if use_vertica:
+        ora_con = DB.OracleConnection()
+        with ora_con.cursor() as curs:
+            curs.execute("DELETE from trader where full_name is null")
+            curs.execute("DELETE from rastr_vetv where loading_protocol is null")
+            curs.execute("DELETE from rastr_node where loading_protocol is null")
+            curs.execute("DELETE from rastr_consumer2 where loading_protocol is null")
+        ora_con.commit()
+    # read only!
+    make_sections(tsid, tdate=tdate)
+    make_dgu_groups(tsid, tdate=tdate)
+    make_bids(tsid, tdate=tdate)
+    make_stations(tsid, tdate=tdate)
+    make_areas(tsid, tdate=tdate)
+    make_impex_areas(tsid, tdate=tdate)
+    make_nodes(tsid, tdate=tdate)
+    make_loads(tsid, tdate=tdate)
+    make_consumers(tsid, tdate=tdate)
+    make_dpgs(tsid, tdate=tdate)
+    make_dgus(tsid, tdate=tdate)
+    make_wsumgen(tsid, tdate=tdate)
+    make_gus(tsid, tdate=tdate)
+    make_lines(tsid, tdate=tdate)
+    make_price_zones(tsid, tdate=tdate)
+    make_settings(tsid, tdate=tdate)
+    make_peak_so(tsid, target_date, tdate=tdate)
 
-    ora_con = DB.OracleConnection()
-    # with ora_con.cursor() as curs:
-    #     curs.execute("DELETE from trader where full_name is null")
-    #     curs.execute("DELETE from rastr_vetv where loading_protocol is null")
-    #     curs.execute("DELETE from rastr_node where loading_protocol is null")
-    #     ora_con.commit()
-
-    try:
-        # read only!
-        make_sections(tsid, tdate=tdate)
-        make_dgu_groups(tsid, tdate=tdate)
-        make_bids(tsid, tdate=tdate)
-        make_stations(tsid, tdate=tdate)
-        make_areas(tsid, tdate=tdate)
-        make_impex_areas(tsid, tdate=tdate)
-        make_nodes(tsid, tdate=tdate)
-        make_loads(tsid, tdate=tdate)
-        make_consumers(tsid, tdate=tdate)
-        make_dpgs(tsid, tdate=tdate)
-        make_dgus(tsid, tdate=tdate)
-        make_wsumgen(tsid, tdate=tdate)
-        make_gus(tsid, tdate=tdate)
-        make_lines(tsid, tdate=tdate)
-        make_price_zones(tdate=tdate)
-        make_settings(tsid, tdate=tdate)
-        if use_vertica: # read-write operations!
+    if use_vertica: # read-write operations!
+        try:
+            add_areas_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
+            add_dpgs_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
+            add_consumers_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
+            add_sections_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_stations_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_nodes_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_dgus_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_supplies_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_lines_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_gus_vertica(scenario)
-        make_bid_max_prices(tdate=tdate)
-    except Exception:
-        ora_con.rollback()
-        raise
-    else:
-        ora_con.commit()
+
+        except Exception:
+            ora_con.rollback()
+            raise
+        else:
+            ora_con.commit()
+
+    make_bid_max_prices(tdate=tdate)
 
     print(time.time() - start_time)
 
@@ -114,10 +122,15 @@ def intertwine_model():
         # except:
         #     print(gu)
 
+    for line in Line:
+        line.set_nodes(Node)
+
     for dgu in Dgu:
         dgu.set_node(Node)
         dgu.set_wsumgen(Wsumgen)
         dgu.set_parent_dpg(DpgSupply)
+
+    for dgu in Dgu:
         dgu.modify_state()
 
     for dpg in list(Dpg):  # .lst['id'].values():
@@ -127,9 +140,6 @@ def intertwine_model():
         dpg.set_consumer(Consumer)
         dpg.set_load(Load)
         dpg.set_area(Area)
-
-    for line in Line:
-        line.set_nodes(Node)
 
     for area in Area:
         area.attach_nodes(Node)
@@ -158,9 +168,16 @@ def intertwine_model():
         section.attach_lines(Line)
         section.set_impex_data(ImpexArea)
 
+    for wsumgen in Wsumgen:
+        wsumgen.recalculate()
+
+    # for node in Node:
+    #     node.modify_state()
+
     print(time.time() - start_time)
 
 def fill_db():
+    """insert data into DB"""
     con = DB.OracleConnection()
 
     con.exec_insert('DELETE from kc_dpg_node')
@@ -175,37 +192,41 @@ def fill_db():
 
 
     con.exec_insert('DELETE from node_bid_pair')
-    es = []
-    ed = []
+    _es = []
+    _ed = []
     for dpg in DpgSupply:
         for bid in dpg.get_distributed_bid():
             if not bid[7]:
-                es.append(bid[:7] + (dpg.code, Node[bid[1]].price_zone * 2))
+                _es.append(bid[:7] + (dpg.code, Node[bid[1]].price_zone * 2))
 
     for dpg in DpgDemand:
         for bid in dpg.get_distributed_bid():
             if dpg.supply_gaes:
-                es.append((bid[0], bid[4], -bid[5], -bid[5], 0, dpg.supply_gaes.dgus[0].code,
-                           bid[3], dpg.supply_gaes.code, Node[bid[4]].price_zone * 2))
+                _es.append((
+                    bid[0], bid[4], -bid[5], -bid[5], 0, dpg.supply_gaes.dgus[0].code,
+                    bid[3], dpg.supply_gaes.code, Node[bid[4]].price_zone * 2
+                ))
             else:
-                ed.append(bid[:1] + bid[2:-1] + (dpg.code, Node[bid[4]].price_zone * 2))
+                _ed.append(bid[:1] + bid[2:-1] + (dpg.code, Node[bid[4]].price_zone * 2))
 
     for dpg in DpgDemandFSK:
         if not dpg.area:
             continue
         for node in dpg.area.nodes:
             for _hd in node.hour_data:
-                ed.append((_hd.hour, None, None, node.code, _hd.pn, 0, dpg.code, node.price_zone * 2))
+                _ed.append((
+                    _hd.hour, None, None, node.code, _hd.pn, 0, dpg.code, node.price_zone * 2
+                ))
 
     with con.cursor() as curs:
         curs.executemany('''INSERT into node_bid_pair (hour, node, volume, min_volume,
                             price, num, interval_num, dpg_code, price_zone_mask)
                             values (:1, :2, :3, :4, :5, :6, :7, :8, :9)
-                         ''', es)
+                         ''', _es)
         curs.executemany('''INSERT into node_bid_pair (hour, consumer2, interval_num,
                             node, volume, price, dpg_code, price_zone_mask)
                             values (:1, :2, :3, :4, :5, :6, :7, :8)
-                         ''', ed)
+                         ''', _ed)
         curs.execute('''MERGE INTO node_bid_pair n1
                     using (SELECT sum(volume) over (partition by dpg_code, num, node, hour order by interval_num) v,
                                 dpg_Code, num, consumer2, node, interval_num, hour
