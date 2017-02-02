@@ -1,4 +1,5 @@
 """Create Dpg instances."""
+import cx_Oracle
 from utils import DB
 from utils.trade_session_manager import ts_manager
 from sql_scripts import consumers_script as cs
@@ -70,17 +71,21 @@ def add_dpgs_vertica(scenario, **kwargs):
         if not ora_con.exec_script('''
                 select trader_id from trader where trader_code=:trader_code
                 ''', trader_code=new_row.dpg_code):
-            ora_con.exec_insert('''
-                insert into trader (trader_id, real_trader_id, trader_code,
-                begin_date, end_date, trader_type, price_zone_code, is_gaes,
-                is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
-                is_spot_trader, parent_dpg_id, dpg_type, parent_object_id, region_code)
-                values (:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
-                    :price_zone_code, :is_gaes, :is_blocked, :is_unpriced_zone,
-                    :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id,
-                    :dpg_type, :parent_id, :region_code)
-                ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, parent_id=SIPR_OWNER_ID,
-                                dpg_type=DPG_SUPPLY_TYPE, **new_row._asdict())
+            try:
+                ora_con.exec_insert('''
+                    insert into trader (trader_id, real_trader_id, trader_code,
+                    begin_date, end_date, trader_type, price_zone_code, is_gaes,
+                    is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
+                    is_spot_trader, parent_dpg_id, dpg_type, parent_object_id, region_code)
+                    values (:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
+                        :price_zone_code, :is_gaes, :is_blocked, :is_unpriced_zone,
+                        :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id,
+                        :dpg_type, :parent_id, :region_code)
+                    ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, parent_id=SIPR_OWNER_ID,
+                                    dpg_type=DPG_SUPPLY_TYPE, **new_row._asdict())
+            except cx_Oracle.IntegrityError:
+                print(new_row)
+                raise
 
         DpgSupply(new_row)
 

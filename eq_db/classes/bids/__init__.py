@@ -56,7 +56,7 @@ def add_bids_vertica(scenario, **kwargs):
         #                     tdate=target_date, **new_row._asdict())
         bid_init_insert.append(new_row + (target_date,))
 
-        Bid(new_row)
+        Bid(new_row, True)
 
 
     bid_init_hour_insert = []

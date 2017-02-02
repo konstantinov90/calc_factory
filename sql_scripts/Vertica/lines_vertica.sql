@@ -76,3 +76,5 @@ where scenario_fk = :scenario
 on par.par <= greatest(branch.par_count, 1)
 where par_count is not null
 and node_code_from != 100262
+and node_code_from != 526800
+and node_code_to != 301220

@@ -12,8 +12,9 @@ HOURCOUNT = 24
 class Bid(object, metaclass=MetaBase):
     """class bid"""
     max_prices = [[] for hour in range(HOURCOUNT)]
-    def __init__(self, bis_row):
+    def __init__(self, bis_row, is_new=False):
         self.dpg_code, self.dpg_id, self.bid_id = bis_row
+        self.is_new = is_new
         self.hour_data = {}
         self.hours_index = {}
         self._init_on_load()

@@ -4,7 +4,7 @@ from operator import itemgetter, attrgetter
 try:
     import matlab
     import matlab.engine
-except Exception as ex:
+except ImportError as ex:
     print(ex)
 import mat4py
 from eq_db import model as m
@@ -14,7 +14,7 @@ from utils.csv_comparator import csv_comparator
 
 USE_VERTICA = True
 SAVE_MAT_FILE = True
-CALC_EQUILIBRIUM = False
+CALC_EQUILIBRIUM = True
 EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\189'
 COMPARE_DATA = False
 
@@ -23,16 +23,16 @@ COMPARE_DATA = False
 for target_date, tsid in DB.OracleConnection().exec_script('''
                         SELECT target_date, decode(status, 1, null, trade_session_id)
                         from tsdb2.trade_session
-                        where target_Date = to_date('31072016', 'ddmmyyyy')
-                        --where status = 1
+                        --where target_Date = to_date('31072016', 'ddmmyyyy')
+                        where status = 1
                         and is_main = 1
                         '''):
     for scenario, *_ in DB.VerticaConnection().exec_script('''
                             SELECT distinct scenario_pk
                             from dm_opr.model_scenarios
-                            where date_ts = :tdate
+                            --where date_ts = :tdate
                             --and scenario_pk > 6
-                            --where scenario_pk = 11
+                            where scenario_pk = 6
                             order by scenario_pk''', tdate=target_date):
 
         tdate = target_date.strftime('%Y-%m-%d')

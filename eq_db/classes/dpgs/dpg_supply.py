@@ -83,10 +83,10 @@ class DpgSupply(Dpg):
         """set dpg demand instance"""
         if self.dpg_demand_id:
             self.dpg_demand = dpg_list.by_id[self.dpg_demand_id]
-            # try:
-            self.dpg_demand.add_bs_or_gaes_supply(self)
-            # except AttributeError:
-            #     print('dpg %s has no corresponding dpg demand %i' % (self.code, self.dpg_demand_id))
+            try:
+                self.dpg_demand.add_bs_or_gaes_supply(self)
+            except AttributeError:
+                print('dpg %s has no corresponding dpg demand %i' % (self.code, self.dpg_demand_id))
 
     def recalculate(self):
         """additional calculation"""

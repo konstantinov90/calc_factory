@@ -136,4 +136,7 @@ class DpgDemandSystem(DpgDemand):
     def fill_db(self, con):
         """fill kc_dpg_node"""
         if not self.is_unpriced_zone or self.code in UNPRICED_AREA:
-            self.area.fill_db(con)
+            try:
+                self.area.fill_db(con)
+            except AttrbuteError as ae:
+                print('%s -> %r' % (self.code, ae))

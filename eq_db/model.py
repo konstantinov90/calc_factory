@@ -92,7 +92,7 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
             add_dpgs_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_consumers_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_sections_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
+            # add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_stations_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_nodes_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_dgus_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
