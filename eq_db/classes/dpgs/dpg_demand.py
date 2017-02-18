@@ -11,8 +11,9 @@ GAES_INTERVAL = -32
 class DpgDemand(Dpg):
     """abstract class DpgDemand"""
     def __init__(self, cs_row):
-        super().__init__(cs_row.dpg_id, cs_row.dpg_code, cs_row.is_unpriced_zone, \
-                         cs_row.is_spot_trader, cs_row.region_code, cs_row.price_zone_code)
+        super().__init__(cs_row.dpg_id, cs_row.dpg_code, cs_row.is_unpriced_zone,
+                         cs_row.is_spot_trader, cs_row.region_code, cs_row.price_zone_code,
+                         cs_row.participant_id)
         self.consumer_code, self.area_code, self.dem_rep_volume, self.dem_rep_hours, *_ = cs_row
         self.is_system = bool(cs_row.is_system)
         self.is_fed_station = bool(cs_row.is_fed_station)

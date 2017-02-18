@@ -48,6 +48,7 @@ class GeneratorsScript(Script):
             is_spot_trader
             dpg_demand_id
             region_code
+            participant_id
         ''')
         self._init_tuple()
 
@@ -76,7 +77,7 @@ bid_init_script = BidInitsScript()
 
 class BidInitsScript_V(BidInitsScript):
     def __init__(self):
-        super().__init__(r'Vertica\bid_init_vertica_filtered.sql')
+        super().__init__(r'Vertica\bid_init_vertica.sql')
 
 bid_init_script_v = BidInitsScript_V()
 
@@ -199,6 +200,7 @@ class ConsumersScript(Script):
             max_forecast
             is_spot_trader
             region_code
+            participant_id
         ''')
         self._init_tuple()
 
@@ -279,8 +281,8 @@ impex_area_script = ImpexAreaScript()
 
 
 class RastrLoadScript(Script):
-    def __init__(self):
-        super().__init__('rastr_load.sql')
+    def __init__(self, filename='rastr_load.sql'):
+        super().__init__(filename)
         self.index = make_index('''
             hour
             node_code
@@ -292,6 +294,7 @@ class RastrLoadScript(Script):
         self._init_tuple()
 
 rastr_load_script = RastrLoadScript()
+rastr_load_script_v = RastrLoadScript(r'Vertica\load_vertica.sql')
 
 
 class RastrConsumerScript(Script):
@@ -425,6 +428,7 @@ class ImpexDpgsScript(Script):
             is_spot_trader
             region_code
             price_zone_code
+            participant_id
         ''')
         self._init_tuple()
 

@@ -88,7 +88,7 @@ class DguHourData(object):
         self.vgain = 0
         self.vdrop = 0
 
-        node_hd = self.dgu.node.hour_data[self.hour]
-        if not sum(dgu.hour_data[self.hour].pmax for dgu in self.dgu.node.dgus) \
-           and not node_hd.pn:
-            node_hd.turn_off()
+        # node_hd = self.dgu.node.hour_data[self.hour]
+        # if not sum(dgu.hour_data[self.hour].pmax for dgu in self.dgu.node.dgus) \
+        #    and not node_hd.pn:
+        #     node_hd.turn_off()

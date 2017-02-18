@@ -14,8 +14,9 @@ is_fsk,
 min_forecast,
 max_forecast,
 is_spot_trader,
-REGION_CODE
+REGION_CODE,
+987654321 participant_id
 FROM dm_opr.MODEL_CONSUMERS_TS
 where scenario_fk = :scenario
-and (is_fsk = 1
-or is_system = 1)
+--and (is_fsk = 1
+--or is_system = 1)

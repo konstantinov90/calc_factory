@@ -24,6 +24,9 @@ SIPR_OWNER_ID = 987654321
 PARTICIPANT_TYPE = 2
 SIPR_OWNER_CODE = 'SIPROWNE'
 
+PARTICIPANTS_TO_ADD = [(SIPR_OWNER_ID, SIPR_OWNER_CODE), (464690, 'KRYMITEC'),
+                       (464693, 'SEVENSBT'), (464691, 'KRYMENRG'), (464692, 'SGSPLYUS')]
+
 
 @ts_manager
 def make_dpgs(tsid):
@@ -61,11 +64,12 @@ def add_dpgs_vertica(scenario, **kwargs):
     ora_con = kwargs['ora_con']
     tdate = kwargs['target_date']
 
-    ora_con.exec_insert('''insert into trader (trader_id, real_trader_id,
-                        begin_date, end_date, trader_type, trader_code)
-                        values (:id, :id, :tdate, :tdate, :type, :code)
-                        ''', id=SIPR_OWNER_ID, tdate=tdate, type=PARTICIPANT_TYPE,
-                        code=SIPR_OWNER_CODE)
+    for prt_id, prt_code in PARTICIPANTS_TO_ADD:
+        ora_con.exec_insert('''insert into trader (trader_id, real_trader_id,
+                            begin_date, end_date, trader_type, trader_code)
+                            values (:id, :id, :tdate, :tdate, :type, :code)
+                            ''', id=prt_id, tdate=tdate, type=PARTICIPANT_TYPE,
+                            code=prt_code)
 
     for new_row in con.script_cursor(gs_v, scenario=scenario):
         if not ora_con.exec_script('''
@@ -80,8 +84,8 @@ def add_dpgs_vertica(scenario, **kwargs):
                     values (:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
                         :price_zone_code, :is_gaes, :is_blocked, :is_unpriced_zone,
                         :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id,
-                        :dpg_type, :parent_id, :region_code)
-                    ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, parent_id=SIPR_OWNER_ID,
+                        :dpg_type, :participant_id, :region_code)
+                    ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, # parent_id=SIPR_OWNER_ID,
                                     dpg_type=DPG_SUPPLY_TYPE, **new_row._asdict())
             except cx_Oracle.IntegrityError:
                 print(new_row)
@@ -99,16 +103,18 @@ def add_dpgs_vertica(scenario, **kwargs):
                 es_ref, dpg_dr_volume_decr_fact, dpg_dr_hours_decr, is_system,
                 is_guarantee_supply_co, fed_station, is_disqualified, is_unpriced_zone,
                 is_fsk, is_spot_trader, region_code, dpg_type, parent_object_id,
-                TARIFF2_SUPPLY_MGI, HELP_IMPORT_PRICE2)
+                TARIFF2_SUPPLY_MGI, HELP_IMPORT_PRICE2, is_impex)
                 values (:dpg_id, :dpg_id, :dpg_code, :tdate, :tdate, :trader_type,
                     :price_zone_code, :consumer_code, :area, :dem_rep_volume,
                     :dem_rep_hours, :is_system, :is_gp, :is_fed_station, :is_disqualified,
                     :is_unpriced_zone, :is_fsk, :is_spot_trader, :region_code, :dpg_type,
-                    :parent_id, :min_forecast, :max_forecast)
+                    :participant_id, :min_forecast, :max_forecast, :is_impex)
             ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, dpg_type=DPG_DEMAND_TYPE,
-                                parent_id=SIPR_OWNER_ID, **new_row._asdict())
-        if new_row.dpg_code == 'PKRYMEN1':
+                                is_impex=0, # parent_id=SIPR_OWNER_ID,
+                                **new_row._asdict())
+        if new_row.dpg_code == 'PKRYMEN1' and Dpg.by_code['PAPBESK1']:
             Dpg.by_code['PAPBESK1'].remove()
+            ora_con.exec_insert("delete from trader where trader_code = 'PAPBESK1'")
 
         if new_row.is_fsk:
             DpgDemandFSK(new_row)

@@ -1,5 +1,6 @@
 """Class DpgSupply."""
 # import re
+import settings
 from .base_dpg import Dpg
 
 HOURCOUNT = 24
@@ -10,7 +11,6 @@ PMINTECHINTERVAL = -20
 PMINPRICE = 0.01
 PMININTERVAL = -18
 TARIFF = 9999
-FORCEDSMOOTH = 0
 PRICEACC = 0.8
 PINTSCHGASTFUEL = 7
 
@@ -18,8 +18,9 @@ PINTSCHGASTFUEL = 7
 class DpgSupply(Dpg):
     """class DpgSupply"""
     def __init__(self, gs_row):
-        super().__init__(gs_row.gtp_id, gs_row.dpg_code, gs_row.is_unpriced_zone, \
-                         gs_row.is_spot_trader, gs_row.region_code, gs_row.price_zone_code)
+        super().__init__(gs_row.gtp_id, gs_row.dpg_code, gs_row.is_unpriced_zone,
+                         gs_row.is_spot_trader, gs_row.region_code, gs_row.price_zone_code,
+                         gs_row.participant_id)
         self.is_gaes = bool(gs_row.is_gaes)
         self.is_blocked = bool(gs_row.is_blocked)
         self.is_pintsch_gas = None
@@ -118,6 +119,9 @@ class DpgSupply(Dpg):
                     break
         if self.is_unpriced_zone: # or self.is_gaes or self.is_blocked:
             return
+
+        tariff = 0.8 if self.participant_id in settings.forced_smooth_participants else TARIFF
+        forced_smooth = 1 if self.participant_id in settings.forced_smooth_participants else 0
         for dgu in self.dgus:
             for _hd in dgu.hour_data:
                 # -20 ступень
@@ -131,7 +135,7 @@ class DpgSupply(Dpg):
                     try:
                         self.distributed_bid.append((
                             _hd.hour, dgu.node.code, volume, volume,
-                            PMINTECHPRICE, dgu.code, PMINTECHINTERVAL, 0, TARIFF, FORCEDSMOOTH
+                            PMINTECHPRICE, dgu.code, PMINTECHINTERVAL, 0, tariff, forced_smooth
                         ))
                     except AttributeError:
                         print('ERROR! DGU %i has no node! (DPG %s)' % (dgu.code, self.code))
@@ -142,7 +146,7 @@ class DpgSupply(Dpg):
                 if self.check_volume(volume):
                     self.distributed_bid.append((
                         _hd.hour, dgu.node.code, volume, volume,
-                        PMINPRICE, dgu.code, PMININTERVAL, 0, TARIFF, FORCEDSMOOTH
+                        PMINPRICE, dgu.code, PMININTERVAL, 0, tariff, forced_smooth
                     ))
                 # интегральная ступень
                 if dgu.wsumgen:
@@ -152,14 +156,14 @@ class DpgSupply(Dpg):
                             self.distributed_bid.append((
                                 _hd.hour, dgu.node.code, volume, 0, dgu.wsumgen.price,
                                 dgu.code, HYDROINTERVAL, dgu.wsumgen.integral_id,
-                                TARIFF, FORCEDSMOOTH
+                                tariff, forced_smooth
                             ))
                 elif self.station.type == HYDROSTATIONTYPE:
                     volume = min(_hd.p, _hd.pmax) - _hd.pmin
                     if self.check_volume(volume):
                         self.distributed_bid.append((
                             _hd.hour, dgu.node.code, volume, volume, PMINPRICE,
-                            dgu.code, HYDROINTERVAL, 0, TARIFF, FORCEDSMOOTH
+                            dgu.code, HYDROINTERVAL, 0, tariff, forced_smooth
                         ))
                 else:
                     if not self.bid or not self.is_spot_trader:
@@ -188,5 +192,5 @@ class DpgSupply(Dpg):
                             price = bid.price if bid.price else price_acc
                             self.distributed_bid.append((
                                 _hd.hour, dgu.node.code, volume, min_volume,
-                                price, dgu.code, bid.interval_number, 0, TARIFF, FORCEDSMOOTH
+                                price, dgu.code, bid.interval_number, 0, tariff, forced_smooth
                             ))

@@ -13,8 +13,8 @@ from utils.csv_comparator import csv_comparator
 
 
 USE_VERTICA = True
-SAVE_MAT_FILE = True
-CALC_EQUILIBRIUM = True
+SAVE_MAT_FILE = False
+CALC_EQUILIBRIUM = False
 EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\189'
 COMPARE_DATA = False
 
@@ -23,7 +23,7 @@ COMPARE_DATA = False
 for target_date, tsid in DB.OracleConnection().exec_script('''
                         SELECT target_date, decode(status, 1, null, trade_session_id)
                         from tsdb2.trade_session
-                        --where target_Date = to_date('31072016', 'ddmmyyyy')
+                        -- where target_Date = to_date('31012017', 'ddmmyyyy')
                         where status = 1
                         and is_main = 1
                         '''):
@@ -32,7 +32,7 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
                             from dm_opr.model_scenarios
                             --where date_ts = :tdate
                             --and scenario_pk > 6
-                            where scenario_pk = 6
+                            where scenario_pk = 13
                             order by scenario_pk''', tdate=target_date):
 
         tdate = target_date.strftime('%Y-%m-%d')
@@ -150,7 +150,8 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
             ''', 'eq_db_fuel_data.csv', 0, 1, tsid=tsid)
 
             csv_comparator(eg, '''
-                SELECT hour_num, gen_id, p_min, p, ramp_up, ramp_down
+                SELECT hour_num, gen_id, p_min, p, ramp_up, ramp_down,
+                pnpr, pvpr, station_type, node
                 from tsdb2.wh_eq_db_generators partition (&tsid)
                 order by gen_id, hour_num
             ''', 'eq_db_generators_data.csv', 1, 0, tsid=tsid)
@@ -200,10 +201,13 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
                      when is_system = 1 and fed_Station = 1 then -52
                      when is_system = 0 and fed_station = 1 then -42
                      when is_gaes = 1 then -32 end interval_num,
-                n$node, f$volume, 9679*1e6, 1
+                n$node, f$volume, hr.bid_max_price*1e6, 1
                 from tsdb2.wh_fixedcon_consumer partition (&tsid) f,
-                tsdb2.wh_trader partition (&tsid) t
+                tsdb2.wh_trader partition (&tsid) t,
+                tsdb2.wh_hour partition (&tsid) hr
                 where t.consumer2 = f.n$objectid
+                and hr.hour = f.n$hour
+
                 order by id, node_id, hour_num, interval_num
             ''', 'eq_db_demands_data.csv', 1, 3, 0, 2, tsid=tsid)
 
@@ -215,7 +219,7 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
 
             csv_comparator(eq, '''
                 SELECT hour_num, node_id, u_base, start_u, start_phase, u_rated,
-                region_id, price_zone, nvl(pricezonefixed, -1)
+                region_id, price_zone, nvl(pricezonefixed, -1), is_price_zone
                 FROM tsdb2.wh_eq_db_nodes PARTITION (&tsid)
                 ORDER BY node_id, hour_num
             ''', 'eq_db_nodes_data.csv', 1, 0, tsid=tsid)
@@ -235,7 +239,8 @@ for target_date, tsid in DB.OracleConnection().exec_script('''
             ''', 'eq_db_nodes_pv_data.csv', 1, 0, tsid=tsid)
 
             csv_comparator(sw, '''
-                SELECT hour_num, node_id, U_base, u_rel, phase_start, P_start, q_max, q_min
+                SELECT hour_num, node_id, U_base, u_rel, phase_start, P_start,
+                q_max, q_min, is_main_for_dr
                 FROM tsdb2.wh_eq_db_nodes_sw PARTITION (&tsid)
                 ORDER BY node_id, hour_num
             ''', 'eq_db_nodes_sw_data.csv', 1, 0, tsid=tsid)

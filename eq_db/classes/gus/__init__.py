@@ -46,12 +46,14 @@ def add_gus_vertica(scenario):
         Gu.by_id[new_row.gu_code].add_gu_hour_data(new_row, GuHourData(new_row))
 
     # load turned off blocks from vertica
-    # for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):
-    #     try:
-    #         for _gu in Gu.by_code[gu_code]:
-    #             _gu.set_to_remove()
-    #     except TypeError:
-    #         print('Attempted to access nonexistent Gu %i!' % gu_code)
+    for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):
+        try:
+            for _gu in Gu.by_code[gu_code]:
+                for gu_hd in _gu.hour_data:
+                    gu_hd.changed = gu_hd.state
+                    gu_hd.state = False
+        except TypeError:
+            print('Attempted to access nonexistent Gu %i!' % gu_code)
 
     # get new blocks' states from vsvgo
     # for gu_code, hour, state in _blocks_reader(scenario):

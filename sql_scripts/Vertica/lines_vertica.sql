@@ -1,7 +1,7 @@
 select
 branch.node_code_from,
 branch.node_code_to,
-par.par as n_par,
+branch.branch_num as n_par,
 branch.kt,
 0 as kt_im,
 0 as div,
@@ -18,18 +18,11 @@ branch.G,
 0 as losses
 from
 (
-select 1 as par from dual union all
-select 2 as par from dual union all
-select 3 as par from dual union all
-select 4 as par from dual
-)par
-left OUTER JOIN
-(
 select
 h.hour,
 b.node_code_from,
 b.node_code_to,
-b.par_count,
+b.branch_num,
 0 as state,
 b.R,
 b.X,
@@ -72,9 +65,5 @@ from
 )h,
 dm_opr.MODEL_BRANCH_TS b
 where scenario_fk = :scenario
+and inout = 1
 )branch
-on par.par <= greatest(branch.par_count, 1)
-where par_count is not null
-and node_code_from != 100262
-and node_code_from != 526800
-and node_code_to != 301220

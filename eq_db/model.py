@@ -12,7 +12,7 @@ from eq_db.classes.stations import make_stations, add_stations_vertica, Station
 from eq_db.classes.areas import make_areas, add_areas_vertica, Area
 from eq_db.classes.impex_areas import make_impex_areas, ImpexArea
 from eq_db.classes.nodes import make_nodes, add_nodes_vertica, Node
-from eq_db.classes.loads import make_loads, Load
+from eq_db.classes.loads import make_loads, add_loads_vertica, Load
 from eq_db.classes.consumers import make_consumers, add_consumers_vertica, Consumer
 from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica
 from eq_db.classes.dpgs.base_dpg import Dpg
@@ -88,11 +88,12 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
 
     if use_vertica: # read-write operations!
         try:
+            add_loads_vertica(scenario, tdate=tdate)
             add_areas_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_dpgs_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_consumers_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_sections_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            # add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
+            add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_stations_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_nodes_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
             add_dgus_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)

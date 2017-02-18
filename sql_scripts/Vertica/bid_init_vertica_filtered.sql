@@ -14,7 +14,7 @@ union ALL
 
 select distinct
 dpg_code,
-gu_code as dpg_id,
-gu_code as bid_id
+nvl(gu_code, dpg_pk) as dpg_id,
+nvl(gu_code, dpg_pk) as bid_id
 from dm_opr.MODEL_BID_GEN_TS
 where scenario_fk = :scenario

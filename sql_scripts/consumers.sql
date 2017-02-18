@@ -14,7 +14,8 @@ is_fsk,
 p.min_value min_forecast,
 p.max_value max_forecast,
 is_spot_trader,
-region_code
+region_code,
+parent_object_id
 from tsdb2.wh_trader partition (&tsid) gtp
 left outer join tsdb2.wh_tv_prognoz_min_max partition (&tsid) p
 on gtp.trader_code = p.dpg_code

@@ -121,13 +121,13 @@ class DpgDemandSystem(DpgDemand):
                             prev_volume = bid.volume
                             interval = bid.interval_number
                             if interval == -15:
-                                price = BidMaxPrice[hour].price * 3
+                                price = BidMaxPrice[hour].price * 4
                             elif interval == -8:
-                                price = BidMaxPrice[hour].price * 2
+                                price = BidMaxPrice[hour].price * 3
                             elif bid.price:
                                 price = bid.price
                             else:
-                                price = BidMaxPrice[hour].price
+                                price = BidMaxPrice[hour].price * 2
                             self.distributed_bid.append((
                                 hour, 1, self.consumer_code, interval, node.code,
                                 volume, price, 0 if bid.price else 1
