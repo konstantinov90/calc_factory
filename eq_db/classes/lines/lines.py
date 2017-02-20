@@ -11,10 +11,12 @@ class Line(object, metaclass=MetaBase):
     """class Line"""
     # seq = itertools.count()
 
-    def __init__(self, ls_row):
+    def __init__(self, ls_row, is_new=False):
         # self._id = next(self.seq)
         self.node_from_code, self.node_to_code, self.parallel_num, self.kt_re, \
             self.kt_im, self.div, self.type, self.area_code, *_ = ls_row
+        self.is_new = is_new
+        self.is_turned_off = False
         self._hour_data = {}
         self.node_from = None
         self.node_to = None

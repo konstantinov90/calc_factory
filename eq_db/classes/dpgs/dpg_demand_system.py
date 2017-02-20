@@ -9,9 +9,6 @@ FED_STATION_INTERVAL = -52
 
 class DpgDemandSystem(DpgDemand):
     """class DpgDemandSystem"""
-    def __init__(self, cs_row):
-        super().__init__(cs_row)
-        self.is_gp = bool(cs_row.is_gp)
 
     lst = {'id': {}, 'code': {}}
     def _init_on_load(self):
@@ -25,7 +22,6 @@ class DpgDemandSystem(DpgDemand):
     def remove(self):
         """clear instance from class list"""
         super().remove()
-        print('system')
         del DpgDemandSystem.lst['id'][self._id]
         del DpgDemandSystem.lst['code'][self.code]
 

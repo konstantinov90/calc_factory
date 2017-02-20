@@ -17,10 +17,10 @@ PINTSCHGASTFUEL = 7
 
 class DpgSupply(Dpg):
     """class DpgSupply"""
-    def __init__(self, gs_row):
+    def __init__(self, gs_row, is_new=False):
         super().__init__(gs_row.gtp_id, gs_row.dpg_code, gs_row.is_unpriced_zone,
                          gs_row.is_spot_trader, gs_row.region_code, gs_row.price_zone_code,
-                         gs_row.participant_id)
+                         gs_row.participant_id, is_new)
         self.is_gaes = bool(gs_row.is_gaes)
         self.is_blocked = bool(gs_row.is_blocked)
         self.is_pintsch_gas = None

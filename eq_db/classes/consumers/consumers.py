@@ -6,9 +6,10 @@ from .consumers_hour_data import ConsumerHourData
 
 class Consumer(object, metaclass=MetaBase):
     """class Consumer"""
-    def __init__(self, rc_row):
+    def __init__(self, rc_row, is_new=False):
         self.code = rc_row.consumer_code
         self.dem_rep_ready = bool(rc_row.dem_rep_ready)
+        self.is_new = is_new
         self.consumer_hour_data = {}
         self._init_on_load()
 

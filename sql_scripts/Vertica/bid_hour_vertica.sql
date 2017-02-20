@@ -43,3 +43,13 @@ hour,
 nvl(gu_code, dpg_pk) as dpg_id
 from dm_opr.MODEL_BID_GEN_TS
 where scenario_fk = :scenario
+
+union all
+
+select distinct
+DPG_PK as dpg_pk,
+DPG_PK || hour as bid_hour_id,
+hour,
+DPG_PK
+from dm_opr.MODEL_DPGG_BID_TS
+where SCENARIO_FK = :scenario

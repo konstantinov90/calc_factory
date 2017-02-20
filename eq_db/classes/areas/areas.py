@@ -7,8 +7,9 @@ HOURCOUNT = 24
 
 class Area(object, metaclass=MetaBase):
     """class Area"""
-    def __init__(self, ra_row):
+    def __init__(self, ra_row, is_new=False):
         self.code = int(ra_row.area)
+        self.is_new = is_new
         self.area_hour_data = {}
         self.nodes = None
         self.impex_data = None

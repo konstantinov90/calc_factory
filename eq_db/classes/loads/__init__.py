@@ -9,7 +9,6 @@ from .loads import Load
 def make_loads(tsid):
     """create Load instances"""
     con = DB.OracleConnection()
-    Load.clear()
 
     for new_row in con.script_cursor(rl, tsid=tsid):
         load = Load[new_row.consumer_code]
@@ -25,5 +24,5 @@ def add_loads_vertica(scenario):
     for new_row in con.script_cursor(rl_v, scenario=scenario):
         load = Load[new_row.consumer_code]
         if not load:
-            load = Load(new_row)
+            load = Load(new_row, is_new=True)
         load.add_load_hour_data(new_row)

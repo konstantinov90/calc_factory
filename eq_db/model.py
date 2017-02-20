@@ -7,14 +7,16 @@ from utils import DB
 from utils.progress_bar import update_progress
 from eq_db.classes.sections import make_sections, add_sections_vertica, Section
 from eq_db.classes.dgu_groups import make_dgu_groups, DguGroup
-from eq_db.classes.bids import make_bids, add_bids_vertica, Bid
-from eq_db.classes.stations import make_stations, add_stations_vertica, Station
+from eq_db.classes.bids import make_bids, add_bids_vertica, send_bids_to_db, Bid
+from eq_db.classes.stations import make_stations, add_stations_vertica, \
+                                   send_stations_to_db, Station
 from eq_db.classes.areas import make_areas, add_areas_vertica, Area
 from eq_db.classes.impex_areas import make_impex_areas, ImpexArea
-from eq_db.classes.nodes import make_nodes, add_nodes_vertica, Node
+from eq_db.classes.nodes import make_nodes, add_nodes_vertica, send_nodes_to_db, Node
 from eq_db.classes.loads import make_loads, add_loads_vertica, Load
-from eq_db.classes.consumers import make_consumers, add_consumers_vertica, Consumer
-from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica
+from eq_db.classes.consumers import make_consumers, add_consumers_vertica, \
+                                    send_consumers_to_db, Consumer
+from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica, send_dpgs_to_db
 from eq_db.classes.dpgs.base_dpg import Dpg
 from eq_db.classes.dpgs.dpg_demand import DpgDemand
 from eq_db.classes.dpgs.dpg_demand_fsk import DpgDemandFSK
@@ -22,10 +24,10 @@ from eq_db.classes.dpgs.dpg_demand_system import DpgDemandSystem
 from eq_db.classes.dpgs.dpg_demand_load import DpgDemandLoad
 from eq_db.classes.dpgs.dpg_supply import DpgSupply
 from eq_db.classes.dpgs.dpg_impex import DpgImpex
-from eq_db.classes.dgus import make_dgus, add_dgus_vertica, Dgu
+from eq_db.classes.dgus import make_dgus, add_dgus_vertica, send_dgus_to_db, Dgu
 from eq_db.classes.wsumgen import make_wsumgen, Wsumgen
 from eq_db.classes.gus import make_gus, add_gus_vertica, Gu
-from eq_db.classes.lines import make_lines, add_lines_vertica, Line
+from eq_db.classes.lines import make_lines, add_lines_vertica, send_lines_to_db, Line
 from eq_db.classes.price_zone import make_price_zones, PriceZone
 from eq_db.classes.settings import make_settings, Setting
 from eq_db.classes.bids_max_prices import make_bid_max_prices, BidMaxPrice
@@ -34,7 +36,7 @@ from eq_db.classes.peak_so import make_peak_so, PeakSO
 # tsid = 221076901
 # scenario = 1
 # tdate = '29-05-2015'
-def initialize_model(tsid, scenario, target_date, use_vertica):
+def initialize_model(tsid, target_date):
     """make instances of model classes"""
     start_time = time.time()
     tdate = target_date.strftime('%Y-%m-%d')
@@ -59,15 +61,6 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
     #
     # list(res)
 
-    if use_vertica:
-        ora_con = DB.OracleConnection()
-        with ora_con.cursor() as curs:
-            curs.execute("DELETE from trader where full_name is null")
-            curs.execute("DELETE from rastr_vetv where loading_protocol is null")
-            curs.execute("DELETE from rastr_node where loading_protocol is null")
-            curs.execute("DELETE from rastr_consumer2 where loading_protocol is null")
-        ora_con.commit()
-    # read only!
     make_sections(tsid, tdate=tdate)
     make_dgu_groups(tsid, tdate=tdate)
     make_bids(tsid, tdate=tdate)
@@ -86,27 +79,24 @@ def initialize_model(tsid, scenario, target_date, use_vertica):
     make_settings(tsid, tdate=tdate)
     make_peak_so(tsid, target_date, tdate=tdate)
 
-    if use_vertica: # read-write operations!
-        try:
-            add_loads_vertica(scenario, tdate=tdate)
-            add_areas_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_dpgs_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_consumers_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_sections_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_bids_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_stations_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_nodes_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_dgus_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_lines_vertica(scenario, tdate=tdate, target_date=target_date, ora_con=ora_con)
-            add_gus_vertica(scenario)
+    print(time.time() - start_time)
 
-        except Exception:
-            ora_con.rollback()
-            raise
-        else:
-            ora_con.commit()
+def augment_model(scenario, target_date):
+    """add instances of model classes from vertica"""
+    start_time = time.time()
+    tdate = target_date.strftime('%Y-%m-%d')
 
-    make_bid_max_prices(tdate=tdate)
+    add_loads_vertica(scenario, tdate=tdate)
+    add_areas_vertica(scenario, tdate=tdate)
+    add_dpgs_vertica(scenario, tdate=tdate)
+    add_consumers_vertica(scenario, tdate=tdate)
+    add_sections_vertica(scenario, tdate=tdate)
+    add_bids_vertica(scenario, tdate=tdate)
+    add_stations_vertica(scenario, tdate=tdate)
+    add_nodes_vertica(scenario, tdate=tdate)
+    add_dgus_vertica(scenario, tdate=tdate)
+    add_lines_vertica(scenario, tdate=tdate)
+    add_gus_vertica(scenario, tdate=tdate)
 
     print(time.time() - start_time)
 
@@ -114,7 +104,7 @@ def intertwine_model():
     """set intramodel dependencies"""
     start_time = time.time()
 
-    # Bid.set_max_price()
+    make_bid_max_prices()
 
     for unit in Gu:
         # try:
@@ -177,9 +167,19 @@ def intertwine_model():
 
     print(time.time() - start_time)
 
-def fill_db():
+def fill_db(tdate):
     """insert data into DB"""
+    start_time = time.time()
+
     con = DB.OracleConnection()
+
+    send_bids_to_db(con, tdate)
+    send_dpgs_to_db(con, tdate)
+    send_stations_to_db(con, tdate)
+    send_consumers_to_db(con)
+    send_nodes_to_db(con)
+    send_lines_to_db(con)
+    send_dgus_to_db(con, tdate)
 
     con.exec_insert('DELETE from kc_dpg_node')
     for i, dpg in enumerate(chain(DpgDemandLoad, DpgDemandSystem)):
@@ -241,8 +241,8 @@ def fill_db():
                     when matched then update
                     set n1.volume = n2.v''')
 
-
     con.commit()
+    print(time.time() - start_time)
 
 # def modify_block_states():
 #     for dgu in Dgu:

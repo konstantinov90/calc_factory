@@ -1,4 +1,6 @@
-SELECT pnt_dpgc_code as consumer2,
+select
+case when is_fsk = 1 then 397 else null end as es_ref_ex,
+pnt_dpgc_code as consumer2,
 area,
 null as dem_rep_fact,
 null as dem_rep_hours,

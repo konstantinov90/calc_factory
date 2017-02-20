@@ -13,7 +13,6 @@ from .gus_hour_data import GuHourData
 def make_gus(tsid):
     """create Gu instances"""
     con = DB.OracleConnection()
-    Gu.clear()
 
     for new_row in con.script_cursor(gs, tsid=tsid):
         Gu(new_row)
@@ -40,33 +39,33 @@ def add_gus_vertica(scenario):
     """add Gus instances from Vertica DB"""
     con = DB.VerticaConnection()
     for new_row in con.script_cursor(gs_v, scenario=scenario):
-        Gu(new_row)
+        Gu(new_row, is_new=True)
 
     for new_row in con.script_cursor(ns_v, scenario=scenario):
         Gu.by_id[new_row.gu_code].add_gu_hour_data(new_row, GuHourData(new_row))
 
     # load turned off blocks from vertica
-    for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):
-        try:
-            for _gu in Gu.by_code[gu_code]:
-                for gu_hd in _gu.hour_data:
-                    gu_hd.changed = gu_hd.state
-                    gu_hd.state = False
-        except TypeError:
-            print('Attempted to access nonexistent Gu %i!' % gu_code)
+    # for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):
+    #     try:
+    #         for _gu in Gu.by_code[gu_code]:
+    #             for gu_hd in _gu.hour_data:
+    #                 gu_hd.changed = gu_hd.state
+    #                 gu_hd.state = False
+    #     except TypeError:
+    #         print('Attempted to access nonexistent Gu %i!' % gu_code)
 
     # get new blocks' states from vsvgo
-    # for gu_code, hour, state in _blocks_reader(scenario):
-    #     # try:
-    #     [_gu] = Gu.by_code[gu_code]
-    #     # except ValueError:
-    #     #     print('changed Gu %i is blocked!' % gu_code)
-    #     #     #     raise
-    #     #     _gu = Gu.by_code[gu_code][0]
-    #     gu_hd = _gu.hour_data[hour]
-    #     gu_hd.changed = gu_hd.state != state
-    #     gu_hd.state = state
-    #     if not gu_hd.pmax_t and state:
-    #         raise Exception('Gu %i has no pmax at hour %i' % (gu_code, hour))
-    #     # except TypeError:
-    #     #     print('unable to access nonexistent Gu %i!' % gu_code)
+    for gu_code, hour, state in _blocks_reader(scenario):
+        # try:
+        [_gu] = Gu.by_code[gu_code]
+        # except ValueError:
+        #     print('changed Gu %i is blocked!' % gu_code)
+        #     #     raise
+        #     _gu = Gu.by_code[gu_code][0]
+        gu_hd = _gu.hour_data[hour]
+        gu_hd.changed = gu_hd.state != state
+        gu_hd.state = state
+        if not gu_hd.pmax_t and state:
+            raise Exception('Gu %i has no pmax at hour %i' % (gu_code, hour))
+        # except TypeError:
+        #     print('unable to access nonexistent Gu %i!' % gu_code)

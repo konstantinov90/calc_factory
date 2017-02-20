@@ -13,7 +13,6 @@ PRICE_ZONES = (1, 2)
 def make_price_zones(tsid):
     """create PriceZone instances"""
     con = DB.OracleConnection()
-    PriceZone.clear()
 
     for new_row in con.script_cursor(pzs, tsid=tsid):
         price_zone = PriceZone(new_row)

@@ -6,7 +6,7 @@ from ..bids import Bid
 HOURCOUNT = 24
 
 @ts_manager
-def make_bid_max_prices(*args):
+def make_bid_max_prices():
     """create BidMaxPrice instances"""
     dummy = [(hour, 0) for hour in range(HOURCOUNT)]
     for bid in Bid:

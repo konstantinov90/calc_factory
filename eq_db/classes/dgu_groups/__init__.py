@@ -11,7 +11,6 @@ from .dgu_groups import DguGroup
 def make_dgu_groups(tsid):
     """create DguGroup instances"""
     con = DB.OracleConnection()
-    DguGroup.clear()
 
     for new_row in con.script_cursor(rgs, tsid=tsid):
         dgu_group = DguGroup[new_row.group_code]

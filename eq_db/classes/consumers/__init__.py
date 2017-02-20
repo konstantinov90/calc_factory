@@ -10,7 +10,6 @@ from .consumers import Consumer
 def make_consumers(tsid):
     """create Consumer instances"""
     con = DB.OracleConnection()
-    Consumer.clear()
 
     for new_row in con.script_cursor(rc, tsid=tsid):
         consumer = Consumer[new_row.consumer_code]
@@ -19,19 +18,35 @@ def make_consumers(tsid):
         consumer.add_consumer_hour_data(new_row)
 
 @ts_manager
-def add_consumers_vertica(scenario, **kwargs):
+def add_consumers_vertica(scenario):
     """add Consumer instances from Vertica DB"""
     con = DB.VerticaConnection()
-    ora_con = kwargs['ora_con']
-    tdate = kwargs['target_date']
 
     for new_row in con.script_cursor(rc_v, scenario=scenario):
         consumer = Consumer[new_row.consumer_code]
         if not consumer:
-            consumer = Consumer(new_row)
+            consumer = Consumer(new_row, is_new=True)
 
-        ora_con.exec_insert('''insert into rastr_consumer2 (hour, o$num, o$type,
-                               o$pdem, o$pdsready)
-                               values (:hour, :consumer_code, :type, :pdem, :dem_rep_ready)
-                               ''', **new_row._asdict())
         consumer.add_consumer_hour_data(new_row)
+
+@ts_manager
+def send_consumers_to_db(ora_con):
+    """save new instances to current session"""
+    data = []
+
+    for consumer in Consumer:
+        if consumer.is_new:
+            for _hd in consumer.hour_data:
+                data.append((
+                    _hd.hour, consumer.code, _hd.type, _hd.pdem, consumer.dem_rep_ready
+                ))
+
+    with ora_con.cursor() as curs:
+        curs.execute('''DELETE from rastr_consumer2
+                        where loading_protocol is null''')
+
+        curs.executemany('''
+            INSERT into rastr_consumer2 (hour, o$num, o$type,
+            o$pdem, o$pdsready)
+            values (:1, :2, :3, :4, :5)
+        ''', data)

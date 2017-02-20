@@ -1,4 +1,5 @@
 """Create Dpg instances."""
+from operator import attrgetter
 import cx_Oracle
 from utils import DB
 from utils.trade_session_manager import ts_manager
@@ -32,13 +33,6 @@ PARTICIPANTS_TO_ADD = [(SIPR_OWNER_ID, SIPR_OWNER_CODE), (464690, 'KRYMITEC'),
 def make_dpgs(tsid):
     """create Dpg instances"""
     con = DB.OracleConnection()
-    Dpg.clear()
-    DpgSupply.clear()
-    DpgImpex.clear()
-    DpgDemand.clear()
-    DpgDemandFSK.clear()
-    DpgDemandSystem.clear()
-    DpgDemandLoad.clear()
 
     for new_row in con.script_cursor(cs, tsid=tsid):
         if new_row.is_fsk:
@@ -58,67 +52,95 @@ def make_dpgs(tsid):
         DpgImpex(new_row)
 
 @ts_manager
-def add_dpgs_vertica(scenario, **kwargs):
+def add_dpgs_vertica(scenario):
     """add Dpg instances from Vertica DB"""
     con = DB.VerticaConnection()
-    ora_con = kwargs['ora_con']
-    tdate = kwargs['target_date']
-
-    for prt_id, prt_code in PARTICIPANTS_TO_ADD:
-        ora_con.exec_insert('''insert into trader (trader_id, real_trader_id,
-                            begin_date, end_date, trader_type, trader_code)
-                            values (:id, :id, :tdate, :tdate, :type, :code)
-                            ''', id=prt_id, tdate=tdate, type=PARTICIPANT_TYPE,
-                            code=prt_code)
 
     for new_row in con.script_cursor(gs_v, scenario=scenario):
-        if not ora_con.exec_script('''
-                select trader_id from trader where trader_code=:trader_code
-                ''', trader_code=new_row.dpg_code):
-            try:
-                ora_con.exec_insert('''
-                    insert into trader (trader_id, real_trader_id, trader_code,
-                    begin_date, end_date, trader_type, price_zone_code, is_gaes,
-                    is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
-                    is_spot_trader, parent_dpg_id, dpg_type, parent_object_id, region_code)
-                    values (:gtp_id, :gtp_id, :dpg_code, :tdate, :tdate, :trader_type,
-                        :price_zone_code, :is_gaes, :is_blocked, :is_unpriced_zone,
-                        :fed_station_id, :station_id, :is_spot_trader, :dpg_demand_id,
-                        :dpg_type, :participant_id, :region_code)
-                    ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, # parent_id=SIPR_OWNER_ID,
-                                    dpg_type=DPG_SUPPLY_TYPE, **new_row._asdict())
-            except cx_Oracle.IntegrityError:
-                print(new_row)
-                raise
-
-        DpgSupply(new_row)
+        DpgSupply(new_row, is_new=True)
 
     for new_row in con.script_cursor(cs_v, scenario=scenario):
-        if not ora_con.exec_script('''
-                select trader_id from trader where trader_code = :trader_code
-                ''', trader_code=new_row.dpg_code):
-            ora_con.exec_insert('''
-                insert into trader (trader_id, real_trader_id, trader_code,
-                begin_date, end_date, trader_type, price_zone_code, consumer2,
-                es_ref, dpg_dr_volume_decr_fact, dpg_dr_hours_decr, is_system,
-                is_guarantee_supply_co, fed_station, is_disqualified, is_unpriced_zone,
-                is_fsk, is_spot_trader, region_code, dpg_type, parent_object_id,
-                TARIFF2_SUPPLY_MGI, HELP_IMPORT_PRICE2, is_impex)
-                values (:dpg_id, :dpg_id, :dpg_code, :tdate, :tdate, :trader_type,
-                    :price_zone_code, :consumer_code, :area, :dem_rep_volume,
-                    :dem_rep_hours, :is_system, :is_gp, :is_fed_station, :is_disqualified,
-                    :is_unpriced_zone, :is_fsk, :is_spot_trader, :region_code, :dpg_type,
-                    :participant_id, :min_forecast, :max_forecast, :is_impex)
-            ''', tdate=tdate, trader_type=DPG_TRADER_TYPE, dpg_type=DPG_DEMAND_TYPE,
-                                is_impex=0, # parent_id=SIPR_OWNER_ID,
-                                **new_row._asdict())
-        if new_row.dpg_code == 'PKRYMEN1' and Dpg.by_code['PAPBESK1']:
-            Dpg.by_code['PAPBESK1'].remove()
-            ora_con.exec_insert("delete from trader where trader_code = 'PAPBESK1'")
-
         if new_row.is_fsk:
-            DpgDemandFSK(new_row)
+            DpgDemandFSK(new_row, is_new=True)
         elif new_row.is_system:
-            DpgDemandSystem(new_row)
+            DpgDemandSystem(new_row, is_new=True)
         else:
-            DpgDemandLoad(new_row)
+            DpgDemandLoad(new_row, is_new=True)
+
+@ts_manager
+def send_dpgs_to_db(ora_con, tdate):
+    """save new instances to current session"""
+
+    supplies_data = []
+    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_SUPPLY_TYPE)
+    attrs = '''_id _id code price_zone_code is_gaes is_blocked
+            is_unpriced_zone fed_station_id station_id is_spot_trader
+            dpg_demand_id participant_id region_code'''.split()
+    atg = attrgetter(*attrs)
+    supplies_attrs_len = len(const_part) + len(attrs)
+
+    for dpg in DpgSupply:
+        if dpg.is_new:
+            supplies_data.append(
+                const_part + atg(dpg)
+            )
+
+    demands_data = []
+    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_DEMAND_TYPE, 0)
+    attrs = '''_id _id code price_zone_code consumer_code
+            area_code dem_rep_volume dem_rep_hours is_system
+            is_gp is_fed_station is_disqualified is_unpriced_zone
+            is_fsk is_spot_trader region_code participant_id area_external'''.split()
+    atg = attrgetter(*attrs)
+    demands_attrs_len = len(const_part) + len(attrs)
+
+    remove_papbesk = False
+    for dpg in DpgDemand:
+        if dpg.is_new:
+            demands_data.append(
+                const_part + atg(dpg)
+            )
+            if dpg.code == 'PKRYMEN1' and Dpg.by_code['PAPBESK1']:
+                remove_papbesk = True
+    if remove_papbesk:
+        Dpg.by_code['PAPBESK1'].remove()
+        ora_con.exec_insert('''
+            DELETE from trader
+            where trader_code = 'PAPBESK1'
+        ''')
+
+
+    with ora_con.cursor() as curs:
+        curs.execute('''
+            DELETE from trader
+            where full_name is null
+            and trader_type in (:type1, :type2)
+        ''', type1=PARTICIPANT_TYPE, type2=DPG_TRADER_TYPE)
+
+
+
+        curs.executemany('''
+            INSERT into trader (trader_id, real_trader_id,
+            begin_date, end_date, trader_type, trader_code)
+            values (:1, :2, :3, :4, :5, :6)
+        ''', [(prt_id, prt_id, tdate, tdate, PARTICIPANT_TYPE, prt_code) \
+              for prt_id, prt_code in PARTICIPANTS_TO_ADD])
+
+        curs.executemany('''
+            INSERT into trader (begin_date, end_date, trader_type, dpg_type,
+            trader_id, real_trader_id, trader_code, price_zone_code, is_gaes,
+            is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
+            is_spot_trader, parent_dpg_id, parent_object_id, region_code)
+            values (:{})
+        '''.format(', :'.join(str(i + 1) for i in range(supplies_attrs_len))),
+                     supplies_data)
+
+        curs.executemany('''
+            INSERT into trader (begin_date, end_date, trader_type, dpg_type, is_impex,
+            trader_id, real_trader_id, trader_code, price_zone_code, consumer2,
+            es_ref, dpg_dr_volume_decr_fact, dpg_dr_hours_decr, is_system,
+            is_guarantee_supply_co, fed_station, is_disqualified, is_unpriced_zone,
+            is_fsk, is_spot_trader, region_code, parent_object_id, es_ref_ex)
+            values (:{})
+        '''.format(', :'.join(str(i + 1) for i in range(demands_attrs_len))),
+                         demands_data)

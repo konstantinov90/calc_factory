@@ -10,7 +10,6 @@ from .areas import Area
 def make_areas(tsid):
     """create Area instances"""
     con = DB.OracleConnection()
-    Area.clear()
 
     for new_row in con.script_cursor(ra, tsid=tsid):
         area = Area[new_row.area]
@@ -19,11 +18,11 @@ def make_areas(tsid):
         area.add_area_hour_data(new_row)
 
 @ts_manager
-def add_areas_vertica(scenario, **kwargs):
+def add_areas_vertica(scenario):
     """add Area instances from Vertica DB"""
     con = DB.VerticaConnection()
     for new_row in con.script_cursor(ra_v, scenario=scenario):
         area = Area[new_row.area]
         if not area:
-            area = Area(new_row)
+            area = Area(new_row, is_new=True)
         area.add_area_hour_data(new_row)

@@ -9,7 +9,7 @@ class Dpg(object, metaclass=MetaBase):
 
     lst = {'id': {}, 'code': {}}
     def __init__(self, _id, code, is_unpriced_zone, is_spot_trader, region_code, \
-                 price_zone_code, participant_id):
+                 price_zone_code, participant_id, is_new):
         self._id = _id
         self.code = code
         self.is_unpriced_zone = is_unpriced_zone
@@ -17,6 +17,7 @@ class Dpg(object, metaclass=MetaBase):
         self.region_code = region_code
         self.price_zone_code = price_zone_code
         self.participant_id = participant_id
+        self.is_new = is_new
         self.bid = None
         self.distributed_bid = []
         self._init_on_load()

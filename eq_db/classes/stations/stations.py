@@ -4,8 +4,9 @@ from ..meta_base import MetaBase
 
 class Station(object, metaclass=MetaBase):
     """Station class"""
-    def __init__(self, ss_row):
+    def __init__(self, ss_row, is_new=False):
         self._id, self.code, self.type, self.category = ss_row
+        self.is_new = is_new
         self.dpgs = []
         self._init_on_load()
 

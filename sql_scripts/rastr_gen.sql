@@ -16,4 +16,4 @@ o$wmin wmin,
 o$vgain vgain,
 o$vdrop vdrop,
 o$node node_code
-from tsdb2.wh_rastr_generator_src partition (&tsid) rg
+from tsdb2.wh_rastr_generator partition (&tsid) rg

@@ -9,8 +9,9 @@ HOURCOUNT = 24
 
 class Load(object, metaclass=MetaBase):
     """class Load"""
-    def __init__(self, rl_row):
+    def __init__(self, rl_row, is_new=False):
         self.consumer_code = rl_row.consumer_code
+        self.is_new = is_new
         self._nodes_data = {}
         self._hour_data = {}
         self.dpg = None

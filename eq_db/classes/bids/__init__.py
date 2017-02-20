@@ -15,7 +15,6 @@ HOURCOUNT = 24
 def make_bids(tsid):
     """create Bid instances"""
     con = DB.OracleConnection()
-    Bid.clear()
 
     for new_row in con.script_cursor(bis, tsid=tsid):
         Bid(new_row)
@@ -32,68 +31,49 @@ def make_bids(tsid):
 
 
 @ts_manager
-def add_bids_vertica(scenario, **kwargs):
+def add_bids_vertica(scenario):
     """add Bid instances from Vertica DB"""
     con = DB.VerticaConnection()
-    ora_con = kwargs['ora_con']
-    target_date = kwargs['target_date']
 
-    bid_init_insert = []
-    for new_row in con.script_cursor(bis_v, scenario=scenario, target_date=target_date):
-        dpg_id = new_row.dpg_id
-        dpg_code = ora_con.exec_script('''
-            SELECT dpg_code from bid_init where dpg_id = :dpd
-        ''', dpd=dpg_id)
-        if dpg_code:
-            if dpg_code != [(new_row.dpg_code,)]:
-                raise Exception('something wrong with bid %s' % new_row.dpg_code)
-            # ora_con.exec_insert('DELETE from bid_init_pair where dpg_id = :dpd', dpd=dpg_id)
-            # ora_con.exec_insert('DELETE from bid_init_hour where dpg_id = :dpd', dpd=dpg_id)
-            # ora_con.exec_insert('DELETE from bid_init where dpg_id = :dpd', dpd=dpg_id)
-
-        # ora_con.exec_insert('''INSERT into bid_init (bid_id, dpg_code, dpg_id, target_date)
-        #                        values (:bid_id, :dpg_code, :dpg_id, :tdate)''',
-        #                     tdate=target_date, **new_row._asdict())
-        bid_init_insert.append(new_row + (target_date,))
-
-        Bid(new_row, True)
+    for new_row in con.script_cursor(bis_v, scenario=scenario):
+        Bid(new_row, is_new=True)
 
 
-    bid_init_hour_insert = []
     for new_row in con.script_cursor(bhs_v, scenario=scenario):
         bid = Bid[new_row.dpg_id]
         if bid:
-            # [(bid_id,)] = ora_con.exec_script('''SELECT bid_id from bid_init
-            #                                      where dpg_id = :dpd''', dpd=new_row.dpg_id)
-            # try:
-            #     ora_con.exec_insert('''INSERT into bid_init_hour (bid_hour_id, bid_id, hour, dpg_id)
-            #                            values (:bid_hour_id, :bid_id, :hour, :dpg_id)''',
-            #                         **new_row._asdict())
-            # except Exception:
-            #     print(new_row)
-            #     raise
-            bid_init_hour_insert.append(tuple(new_row))
             bid.add_hour_data(new_row)
 
 
     # h_re = re.compile(r'(?<=_)\d+')
-    bid_init_pair_insert = []
     for new_row in con.script_cursor(bps_v, scenario=scenario):
         bid = Bid[new_row.dpg_id]
         if bid:
-            # hour = int(h_re.search(new_row.bid_hour_id).group(0))
-            # [(bid_hour_id,)] = ora_con.exec_script('''SELECT bid_hour_id from bid_init_hour
-            #                                           where dpg_id = :dpd and hour = :hour''',
-            #                                        dpd=new_row.dpg_id, hour=hour)
-
-            # ora_con.exec_insert('''INSERT into bid_init_pair (bid_hour_id, interval_num,
-            #                        price, volume, dpg_id, volume_src0)
-            #                     values (:bid_hour_id, :interval_number, :price, :volume,
-            #                             :dpg_id, :volume_init)''', **new_row._asdict())
-            bid_init_pair_insert.append(tuple(new_row))
             bid.add_intervals_data(new_row)
 
-    dpgs = [(b[1],) for b in bid_init_insert]
+@ts_manager
+def send_bids_to_db(ora_con, tdate):
+    """save new instances to current session"""
+    bid_init_insert = []
+    bid_init_hour_insert = []
+    bid_init_pair_insert = []
+    dpgs = []
+    for bid in Bid:
+        if bid.is_new:
+            dpgs.append((bid.dpg_id,))
+            bid_init_insert.append((
+                bid.dpg_code, bid.dpg_id, bid.bid_id, tdate
+            ))
+            for bih in bid:
+                bid_init_hour_insert.append((
+                    bih.bid_id, bih.bid_hour_id, bih.hour, bid.dpg_id
+                ))
+                for bip in bih.interval_data:
+                    bid_init_pair_insert.append((
+                        bip.bid_hour_id, bip.interval_number, bip.price,
+                        bip.volume, bid.dpg_id, bip.volume_init
+                    ))
+
     with ora_con.cursor() as curs:
         curs.executemany('DELETE from bid_init_pair where dpg_id = :1', dpgs)
         curs.executemany('DELETE from bid_init_hour where dpg_id = :1', dpgs)

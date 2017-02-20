@@ -10,15 +10,17 @@ GAES_INTERVAL = -32
 
 class DpgDemand(Dpg):
     """abstract class DpgDemand"""
-    def __init__(self, cs_row):
+    def __init__(self, cs_row, is_new=False):
         super().__init__(cs_row.dpg_id, cs_row.dpg_code, cs_row.is_unpriced_zone,
                          cs_row.is_spot_trader, cs_row.region_code, cs_row.price_zone_code,
-                         cs_row.participant_id)
-        self.consumer_code, self.area_code, self.dem_rep_volume, self.dem_rep_hours, *_ = cs_row
+                         cs_row.participant_id, is_new)
+        self.area_external, self.consumer_code, self.area_code, self.dem_rep_volume, \
+        self.dem_rep_hours, *_ = cs_row
         self.is_system = bool(cs_row.is_system)
         self.is_fed_station = bool(cs_row.is_fed_station)
         self.is_disqualified = bool(cs_row.is_disqualified)
         self.is_fsk = bool(cs_row.is_fsk)
+        self.is_gp = bool(cs_row.is_gp)
         self.min_forecast = None if cs_row.min_forecast is None else (cs_row.min_forecast / 1000)
         self.max_forecast = 1000000 if cs_row.max_forecast is None else (cs_row.max_forecast / 1000)
         self.supply_dpgs = []

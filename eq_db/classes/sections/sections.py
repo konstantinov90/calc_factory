@@ -8,9 +8,10 @@ HOURCOUNT = 24
 
 class Section(object, metaclass=MetaBase):
     """class Section"""
-    def __init__(self, ss_row):
+    def __init__(self, ss_row, is_new=False):
         self.code = ss_row.code
         self.type = ss_row.type
+        self.is_new = is_new
         self.hours = {}
         self.dpgs = []
         self.impex_data = []

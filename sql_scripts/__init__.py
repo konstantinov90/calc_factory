@@ -25,7 +25,6 @@ class Script(object):
             self.query = f.read()
 
     def _init_tuple(self):
-        # fields = [item[0] for item in sorted([item for item in self.index.items()], key=itemgetter(1))]
         fields = self.index
         self.Tup = namedtuple(self.__class__.__name__ + '_namedtuple', fields)
 
@@ -53,13 +52,7 @@ class GeneratorsScript(Script):
         self._init_tuple()
 
 generators_script = GeneratorsScript()
-
-
-class GeneratorsScript_V(GeneratorsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\generators_vertica.sql')
-
-generators_script_v = GeneratorsScript_V()
+generators_script_v = GeneratorsScript(r'Vertica\generators_vertica.sql')
 
 
 class BidInitsScript(Script):
@@ -73,13 +66,7 @@ class BidInitsScript(Script):
         self._init_tuple()
 
 bid_init_script = BidInitsScript()
-
-
-class BidInitsScript_V(BidInitsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\bid_init_vertica.sql')
-
-bid_init_script_v = BidInitsScript_V()
+bid_init_script_v = BidInitsScript(r'Vertica\bid_init_vertica.sql')
 
 
 class BidHoursScript(Script):
@@ -94,13 +81,7 @@ class BidHoursScript(Script):
         self._init_tuple()
 
 bid_hour_script = BidHoursScript()
-
-
-class BidHoursScript_V(BidHoursScript):
-    def __init__(self):
-        super().__init__(r'Vertica\bid_hour_vertica.sql')
-
-bid_hour_script_v = BidHoursScript_V()
+bid_hour_script_v = BidHoursScript(r'Vertica\bid_hour_vertica.sql')
 
 
 class BidPairsScript(Script):
@@ -117,13 +98,7 @@ class BidPairsScript(Script):
         self._init_tuple()
 
 bid_pair_script = BidPairsScript()
-
-
-class BidPairsScript_V(BidPairsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\bid_pair_vertica.sql')
-
-bid_pair_script_v = BidPairsScript_V()
+bid_pair_script_v = BidPairsScript(r'Vertica\bid_pair_vertica.sql')
 
 
 class RastrGenScript(Script):
@@ -152,13 +127,7 @@ class RastrGenScript(Script):
         self._init_tuple()
 
 rastr_gen_script = RastrGenScript()
-
-
-class RastrGenScript_V(RastrGenScript):
-    def __init__(self):
-        super().__init__(r'Vertica\dgus_hour_data_vertica.sql')
-
-rastr_gen_script_v = RastrGenScript_V()
+rastr_gen_script_v = RastrGenScript(r'Vertica\dgus_hour_data_vertica.sql')
 
 
 class WsumgenScript(Script):
@@ -183,6 +152,7 @@ class ConsumersScript(Script):
     def __init__(self, filename='consumers.sql'):
         super().__init__(filename)
         self.index = make_index('''
+            area_external
             consumer_code
             area
             dem_rep_volume
@@ -205,13 +175,7 @@ class ConsumersScript(Script):
         self._init_tuple()
 
 consumers_script = ConsumersScript()
-
-
-class ConsumersScript_V(ConsumersScript):
-    def __init__(self):
-        super().__init__(r'Vertica\consumers.sql')
-
-consumers_script_v = ConsumersScript_V()
+consumers_script_v = ConsumersScript(r'Vertica\consumers.sql')
 
 
 class MaxBidPriceScript(Script):
@@ -257,13 +221,7 @@ class NodesScript(Script):
         self._init_tuple()
 
 nodes_script = NodesScript()
-
-
-class NodesScript_V(NodesScript):
-    def __init__(self):
-        super().__init__(r'Vertica\nodes_vertica.sql')
-
-nodes_script_v = NodesScript_V()
+nodes_script_v = NodesScript(r'Vertica\nodes_vertica.sql')
 
 
 class ImpexAreaScript(Script):
@@ -310,13 +268,7 @@ class RastrConsumerScript(Script):
         self._init_tuple()
 
 rastr_consumer_script = RastrConsumerScript()
-
-
-class RastrConsumerScript_V(RastrConsumerScript):
-    def __init__(self):
-        super().__init__(r'Vertica\consumers_param.sql')
-
-rastr_consumer_script_v = RastrConsumerScript_V()
+rastr_consumer_script_v = RastrConsumerScript(r'Vertica\consumers_param.sql')
 
 
 class DisqualifiedDataScript(Script):
@@ -345,13 +297,7 @@ class RastrAreaScript(Script):
         self._init_tuple()
 
 rastr_areas_script = RastrAreaScript()
-
-
-class RastrAreaScript_V(RastrAreaScript):
-    def __init__(self):
-        super().__init__(r'Vertica\area_vertica.sql')
-
-rastr_areas_script_v = RastrAreaScript_V()
+rastr_areas_script_v = RastrAreaScript(r'Vertica\area_vertica.sql')
 
 
 class LinesScript(Script):
@@ -379,13 +325,7 @@ class LinesScript(Script):
         self._init_tuple()
 
 lines_script = LinesScript()
-
-
-class LinesScript_V(LinesScript):
-    def __init__(self):
-        super().__init__(r'Vertica\lines_vertica.sql')
-
-lines_script_v = LinesScript_V()
+lines_script_v = LinesScript(r'Vertica\lines_vertica.sql')
 
 
 class RgeGroupsScript(Script):
@@ -449,13 +389,7 @@ class SectionsScript(Script):
         self._init_tuple()
 
 sections_script = SectionsScript()
-
-
-class SectionsScript_V(SectionsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\sections.sql')
-
-sections_script_v = SectionsScript_V()
+sections_script_v = SectionsScript(r'Vertica\sections.sql')
 
 
 class LineGroupsScript(Script):
@@ -472,13 +406,7 @@ class LineGroupsScript(Script):
         self._init_tuple()
 
 line_groups_script = LineGroupsScript()
-
-
-class LineGroupsScript_V(LineGroupsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\rastr_grline.sql')
-
-line_groups_script_v = LineGroupsScript_V()
+line_groups_script_v = LineGroupsScript(r'Vertica\rastr_grline.sql')
 
 
 class GeneratorsLastHourScript(Script):
@@ -509,8 +437,8 @@ settings_script = SettingsScript()
 
 
 class PeakSOScript(Script):
-    def __init__(self):
-        super().__init__('peak_so.sql')
+    def __init__(self, filename='peak_so.sql'):
+        super().__init__(filename)
         self.index = make_index('''
             price_zone_code
             hour_start
@@ -519,6 +447,7 @@ class PeakSOScript(Script):
         self._init_tuple()
 
 peak_so_script = PeakSOScript()
+peak_so_backup_script = PeakSOScript('peak_so_backup.sql')
 
 
 class DGUsScript(Script):
@@ -533,13 +462,7 @@ class DGUsScript(Script):
         self._init_tuple()
 
 dgus_script = DGUsScript()
-
-
-class DGUsScript_V(DGUsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\dgus_vertica.sql')
-
-dgus_script_v = DGUsScript_V()
+dgus_script_v = DGUsScript(r'Vertica\dgus_vertica.sql')
 
 
 class StationsScript(Script):
@@ -554,13 +477,7 @@ class StationsScript(Script):
         self._init_tuple()
 
 stations_script = StationsScript()
-
-
-class StationsScript_V(StationsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\stations_vertica.sql')
-
-stations_script_v = StationsScript_V()
+stations_script_v = StationsScript(r'Vertica\stations_vertica.sql')
 
 
 class GUsScript(Script):
@@ -577,13 +494,7 @@ class GUsScript(Script):
         self._init_tuple()
 
 gus_script = GUsScript()
-
-
-class GUsScript_V(GUsScript):
-    def __init__(self):
-        super().__init__(r'Vertica\gu_vertica.sql')
-
-gus_script_v = GUsScript_V()
+gus_script_v = GUsScript(r'Vertica\gu_vertica.sql')
 
 
 class NBlockScript(Script):
@@ -606,13 +517,7 @@ class NBlockScript(Script):
         self._init_tuple()
 
 nblock_script = NBlockScript()
-
-
-class NBlockScript_V(NBlockScript):
-    def __init__(self):
-        super().__init__(r'Vertica\gu_hour_data_vertica.sql')
-
-nblock_script_v = NBlockScript_V()
+nblock_script_v = NBlockScript(r'Vertica\gu_hour_data_vertica.sql')
 
 
 class BlockOut(Script):
@@ -622,6 +527,18 @@ class BlockOut(Script):
         self._init_tuple()
 
 block_out_v = BlockOut()
+
+
+class LineOut(Script):
+    def __init__(self):
+        super().__init__(r'Vertica\lines_out.sql')
+        self.index = make_index('''
+            node_from
+            node_to
+            n_par
+        ''')
+
+lines_out_v = LineOut()
 
 
 class PriceZoneScript(Script):

@@ -1,4 +1,6 @@
-select to_number(consumer2),
+select
+es_ref_ex,
+to_number(consumer2),
 es_ref area,
 gtp.dpg_dr_volume_decr_fact,
 gtp.dpg_dr_hours_decr,

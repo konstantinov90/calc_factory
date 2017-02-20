@@ -1,9 +1,7 @@
-select 1 price_zone_code, to_number(param_value)
-from tsdb2.wh_frs_parameter partition (&tsid)
-where param_code = 'PConsYearEur'
+select 1 price_zone_code, getfrsparameternumvalue('PConsYearEur')
+from dual
 
 union all
 
-select 2 price_zone_code, to_number(param_value)
-from tsdb2.wh_frs_parameter partition (&tsid)
-where param_code = 'PConsYearSib'
+select 2 price_zone_code, getfrsparameternumvalue('PConsYearSib')
+from dual

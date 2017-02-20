@@ -14,11 +14,12 @@ class Node(object, metaclass=MetaBase):
     siberia_balance_node = [0]*HOURCOUNT
     balance_nodes = [[] for hour in range(HOURCOUNT)]
 
-    def __init__(self, ns_row):
+    def __init__(self, ns_row, is_new=False):
         self._hour_data = {}
         self.code, self.area_code, self.nominal_voltage, self.min_voltage, \
             self.max_voltage, self.price_zone, *_ = ns_row
         self.voltage_class = self.get_voltage_class(self.nominal_voltage)
+        self.is_new = is_new
         self.area = None
         self.dpg_system = None
         self.dpg_fsk = None

@@ -12,7 +12,7 @@ HOURCOUNT = 24
 
 class Dgu(object, metaclass=MetaBase):
     """class Dgu"""
-    def __init__(self, dgs_row, is_new):
+    def __init__(self, dgs_row, is_new=False):
         self._id, self.code, self.dpg_id, self.fixed_power = dgs_row
         self.node_code = None
         self._hour_data = {}
@@ -184,7 +184,7 @@ class Dgu(object, metaclass=MetaBase):
             ))
 
     def fill_db(self, con):
-        """fill kg_dpg_rge and rastr_generator"""
+        """fill kg_dpg_rge"""
         script = """INSERT into kg_dpg_rge (hour, kg, p, pmax, pmin, pminagg, dpminso,
                                 kg_min, kg_reg, dpmin_heat, dpmin_tech, dpg_id, node,
                                 rge_id, rge_code, sta, kg_fixed_power)
@@ -199,18 +199,18 @@ class Dgu(object, metaclass=MetaBase):
             data.append(_hd.get_insert_data() + common_data +
                         ((0, self.kg_fixed) if node_state else (1, None)))
 
-        attrs = attrgetter(*'''hour dgu_code pmin pmax pmin_agg pmax_agg pmin_tech
-                              pmax_tech pmin_heat pmax_heat pmin_so pmax_so p wmax
-                              wmin vgain vdrop'''.split())
-        gen_script = """INSERT into rastr_generator (hour, o$num, o$pmin, o$pmax, o$pminagg,
-                                o$pmaxagg, o$dpmintech, o$dpmaxtech, o$dpminheat,
-                                o$dpmaxheat, o$dpminso, o$dpmaxso, o$p, o$wmax, o$wmin,
-                                o$vgain, o$vdrop, o$node)
-                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13,
-                            :14, :15, :16, :17, :18)"""
+        # attrs = attrgetter(*'''hour dgu_code pmin pmax pmin_agg pmax_agg pmin_tech
+        #                       pmax_tech pmin_heat pmax_heat pmin_so pmax_so p wmax
+        #                       wmin vgain vdrop'''.split())
+        # gen_script = """INSERT into rastr_generator (hour, o$num, o$pmin, o$pmax, o$pminagg,
+        #                         o$pmaxagg, o$dpmintech, o$dpmaxtech, o$dpminheat,
+        #                         o$dpmaxheat, o$dpminso, o$dpmaxso, o$p, o$wmax, o$wmin,
+        #                         o$vgain, o$vdrop, o$node)
+        #             VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13,
+        #                     :14, :15, :16, :17, :18)"""
 
         with con.cursor() as curs:
             curs.executemany(script, data)
-            curs.execute('DELETE from rastr_generator where o$num = %i' % self.code)
-            curs.executemany(gen_script, [attrs(_hd) + (self.node.code,)
-                                          for _hd in self.hour_data])
+            # curs.execute('DELETE from rastr_generator where o$num = %i' % self.code)
+            # curs.executemany(gen_script, [attrs(_hd) + (self.node.code,)
+            #                               for _hd in self.hour_data])

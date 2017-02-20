@@ -6,7 +6,7 @@ from ..meta_base import MetaBase
 
 class Gu(object, metaclass=MetaBase):
     """class Gu"""
-    def __init__(self, gs_row):
+    def __init__(self, gs_row, is_new=False):
         self.is_in_rio = True
         # self.is_remove = False
         self._id, self.code, self.dgu_id, self.fuel_types, self.fixed_power = gs_row
@@ -15,6 +15,7 @@ class Gu(object, metaclass=MetaBase):
         else:
             self.fuel_type_list = []
 
+        self.is_new = is_new
         self._hour_data = {}
         self.dgu_code = None
         self.dgu = None
