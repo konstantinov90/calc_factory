@@ -65,7 +65,7 @@ class Dgu(object, metaclass=MetaBase):
 
     def modify_state(self):
         """set instance to remove"""
-        if self.dpg.is_unpriced_zone:
+        if self.dpg.is_unpriced_zone or self.dpg.station.type == HYDROSTATIONTYPE:
             return
         turned_off = False
         for _hd in self.hour_data:
@@ -178,9 +178,10 @@ class Dgu(object, metaclass=MetaBase):
         for _hd in self.hour_data:
             gain = 60 * (999999999 if not _hd.vgain else _hd.vgain)
             drop = 60 * (999999999 if not _hd.vdrop else _hd.vdrop)
+            node_code = self.node.code if self.node.hour_data[_hd.hour].state else 0
             self.prepared_generator_data.append((
                 _hd.hour, self.code, 0, 0, gain, drop, _hd.pmin, _hd.pmax,
-                self.dpg.station.type, self.node.code
+                self.dpg.station.type, node_code
             ))
 
     def fill_db(self, con):

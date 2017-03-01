@@ -85,7 +85,7 @@ class DpgDemandSystem(DpgDemand):
             for node in self.area.nodes:
                 node_hd = node.hour_data[hour]
                 value = max(node_hd.pn, 0) / p_n * volume
-                if self.check_volume(value) and node_hd.state:
+                if self.check_volume(value) and node_hd.state and node_hd.type:
                     self.distributed_bid.append((
                         hour, 1, self.consumer_code, FED_STATION_INTERVAL,
                         node.code, value, BidMaxPrice[node_hd.hour].price * 1e6, 1

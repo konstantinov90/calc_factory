@@ -46,10 +46,38 @@ where scenario_fk = :scenario
 
 union all
 
-select distinct
-DPG_PK as dpg_pk,
-DPG_PK || hour as bid_hour_id,
-hour,
-DPG_PK
-from dm_opr.MODEL_DPGG_BID_TS
-where SCENARIO_FK = :scenario
+select bid_id, dpg_id || hour as bid_hour_id, hour, dpg_id
+from (
+	select distinct
+	DPG_code,
+	DPG_PK as dpg_id,
+	DPG_PK as bid_id
+	from dm_opr.MODEL_DPGG_BID_TS
+	where SCENARIO_FK = :scenario
+) b full join (
+  select 0 as hour from dual union all
+  select 1 as hour from dual union all
+  select 2 as hour from dual union all
+  select 3 as hour from dual union all
+  select 4 as hour from dual union all
+  select 5 as hour from dual union all
+  select 6 as hour from dual union all
+  select 7 as hour from dual union all
+  select 8 as hour from dual union all
+  select 9 as hour from dual union all
+  select 10 as hour from dual union all
+  select 11 as hour from dual union all
+  select 12 as hour from dual union all
+  select 13 as hour from dual union all
+  select 14 as hour from dual union all
+  select 15 as hour from dual union all
+  select 16 as hour from dual union all
+  select 17 as hour from dual union all
+  select 18 as hour from dual union all
+  select 19 as hour from dual union all
+  select 20 as hour from dual union all
+  select 21 as hour from dual union all
+  select 22 as hour from dual union all
+  select 23 as hour from dual
+)h
+on 1 = 1

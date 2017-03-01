@@ -10,7 +10,9 @@ dpg_station_id station_id,
 is_spot_trader,
 parent_dpg_id,
 region_code,
-parent_object_id
+parent_object_id,
+oes,
+full_name
 from tsdb2.wh_trader partition (&tsid)
 where trader_type = 100
 and dpg_type = 2

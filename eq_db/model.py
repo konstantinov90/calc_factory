@@ -121,9 +121,6 @@ def intertwine_model():
         dgu.set_wsumgen(Wsumgen)
         dgu.set_parent_dpg(DpgSupply)
 
-    for dgu in Dgu:
-        dgu.modify_state()
-
     for dpg in list(Dpg):  # .lst['id'].values():
         dpg.set_bid(Bid)
 
@@ -149,6 +146,11 @@ def intertwine_model():
         dpg.set_station(Station)
         dpg.set_fed_station(DpgDemand)
         dpg.set_dpg_demand(DpgDemand)
+
+    for dgu in Dgu:
+        dgu.modify_state()
+
+    for dpg in DpgSupply:
         dpg.recalculate()
 
     for dpg in DpgImpex:
@@ -240,6 +242,21 @@ def fill_db(tdate):
                     and n1.hour = n2.hour)
                     when matched then update
                     set n1.volume = n2.v''')
+
+        if tdate.year < 2017:
+            curs.execute('''
+                UPDATE trader
+                set oes = 3
+                where region_code in (35, 67)
+            ''')
+            curs.execute('''
+                DELETE from region
+                where region_code in (35, 67)
+            ''')
+            curs.executemany('''
+                INSERT into region (region_code, region_name, sort_order)
+                values (:1, :2, :3)
+            ''', [(35, 'Республика Крым', 31), (67, 'Город Севастополь', 56)])
 
     con.commit()
     print(time.time() - start_time)

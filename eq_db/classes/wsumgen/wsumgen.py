@@ -30,6 +30,10 @@ class Wsumgen(object, metaclass=MetaBase):
 
     def recalculate(self):
         """additional calculation"""
-        dgus = (ws.dgu for ws in Wsumgen if ws.group_code == self.group_code)
+        if self.group_code:
+            dgus = (ws.dgu for ws in Wsumgen if ws.group_code == self.group_code)
+        else:
+            dgus = [self.dgu]
         hours = range(self.hour_start, self.hour_end + 1)
         self.volume = sum(_hd.p - _hd.pmin for dgu in dgus for _hd in dgu.hour_data if _hd.hour in hours)
+        self.min_volume = min(self.min_volume, self.volume)

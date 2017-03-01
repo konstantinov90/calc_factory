@@ -114,16 +114,21 @@ class DpgDemandLoad(DpgDemand):
         """fill kc_dpg_node"""
         if self.supply_gaes:
             script = """INSERT into kc_dpg_node (hour, kc_nodedose, sta, node, dpg_id, is_system,
-                                    dpg_code)
-                        VALUES (:1, :2, :3, :4, :5, :6, :7)"""
+                                    dpg_code, consumer2)
+                        VALUES (:1, :2, :3, :4, :5, :6, :7, :8)"""
             data = []
             for dgu in self.supply_gaes.dgus:
                 for _hd in dgu.hour_data:
                     k_distr = _hd.kg if _hd.kg else dgu.kg_fixed
                     data.append((_hd.hour, k_distr, not dgu.node.get_node_hour_state(_hd.hour),
-                                dgu.node.code, self._id, self.is_system, self.code))
+                                dgu.node.code, self._id, self.is_system, self.code, self.consumer_code))
             with con.cursor() as curs:
-                curs.executemany(script, data)
+                try:
+                    curs.executemany(script, data)
+                except Exception:
+                    for row in data:
+                        print(row)
+                    raise
 
         elif not self.is_unpriced_zone:
             self.load.fill_db(con)

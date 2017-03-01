@@ -79,7 +79,7 @@ def send_dgus_to_db(ora_con, tdate):
     with ora_con.cursor() as curs:
         curs.execute('''
             DELETE from trader
-            where full_name is null
+            where start_version is null
             and trader_type = :type
         ''', type=DGU_TRADER_TYPE)
         curs.execute('''

@@ -48,6 +48,8 @@ class GeneratorsScript(Script):
             dpg_demand_id
             region_code
             participant_id
+            oes_code
+            name
         ''')
         self._init_tuple()
 
@@ -99,6 +101,18 @@ class BidPairsScript(Script):
 
 bid_pair_script = BidPairsScript()
 bid_pair_script_v = BidPairsScript(r'Vertica\bid_pair_vertica.sql')
+
+
+class BidFactorsScript(Script):
+    def __init__(self):
+        super().__init__(r'Vertica\bid_factors.sql')
+        self.index = make_index('''
+            fuel_type
+            bid_factor
+        ''')
+        self._init_tuple()
+
+bid_factor_script = BidFactorsScript()
 
 
 class RastrGenScript(Script):

@@ -24,6 +24,7 @@ DPG_DEMAND_TYPE = 1
 SIPR_OWNER_ID = 987654321
 PARTICIPANT_TYPE = 2
 SIPR_OWNER_CODE = 'SIPROWNE'
+NOT_IMPEX = 0
 
 PARTICIPANTS_TO_ADD = [(SIPR_OWNER_ID, SIPR_OWNER_CODE), (464690, 'KRYMITEC'),
                        (464693, 'SEVENSBT'), (464691, 'KRYMENRG'), (464692, 'SGSPLYUS')]
@@ -72,10 +73,10 @@ def send_dpgs_to_db(ora_con, tdate):
     """save new instances to current session"""
 
     supplies_data = []
-    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_SUPPLY_TYPE)
+    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_SUPPLY_TYPE, NOT_IMPEX)
     attrs = '''_id _id code price_zone_code is_gaes is_blocked
             is_unpriced_zone fed_station_id station_id is_spot_trader
-            dpg_demand_id participant_id region_code'''.split()
+            dpg_demand_id participant_id region_code oes_code name'''.split()
     atg = attrgetter(*attrs)
     supplies_attrs_len = len(const_part) + len(attrs)
 
@@ -86,7 +87,7 @@ def send_dpgs_to_db(ora_con, tdate):
             )
 
     demands_data = []
-    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_DEMAND_TYPE, 0)
+    const_part = (tdate, tdate, DPG_TRADER_TYPE, DPG_DEMAND_TYPE, NOT_IMPEX)
     attrs = '''_id _id code price_zone_code consumer_code
             area_code dem_rep_volume dem_rep_hours is_system
             is_gp is_fed_station is_disqualified is_unpriced_zone
@@ -113,7 +114,7 @@ def send_dpgs_to_db(ora_con, tdate):
     with ora_con.cursor() as curs:
         curs.execute('''
             DELETE from trader
-            where full_name is null
+            where start_version is null
             and trader_type in (:type1, :type2)
         ''', type1=PARTICIPANT_TYPE, type2=DPG_TRADER_TYPE)
 
@@ -127,10 +128,11 @@ def send_dpgs_to_db(ora_con, tdate):
               for prt_id, prt_code in PARTICIPANTS_TO_ADD])
 
         curs.executemany('''
-            INSERT into trader (begin_date, end_date, trader_type, dpg_type,
+            INSERT into trader (begin_date, end_date, trader_type, dpg_type, is_impex,
             trader_id, real_trader_id, trader_code, price_zone_code, is_gaes,
             is_blocked, is_unpriced_zone, ownneeds_dpg_id, dpg_station_id,
-            is_spot_trader, parent_dpg_id, parent_object_id, region_code)
+            is_spot_trader, parent_dpg_id, parent_object_id, region_code,
+            oes, full_name)
             values (:{})
         '''.format(', :'.join(str(i + 1) for i in range(supplies_attrs_len))),
                      supplies_data)

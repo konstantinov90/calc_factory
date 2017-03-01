@@ -4,7 +4,7 @@ from utils import DB
 # from utils.printer import print
 from utils.trade_session_manager import ts_manager
 from sql_scripts import gus_script as gs, nblock_script as ns, gus_script_v as gs_v, \
-nblock_script_v as ns_v, block_out_v as bo_v
+nblock_script_v as ns_v, block_out_v as bo_v, bid_factor_script as bfs
 from .gus import Gu
 from .gus_hour_data import GuHourData
 
@@ -43,6 +43,12 @@ def add_gus_vertica(scenario):
 
     for new_row in con.script_cursor(ns_v, scenario=scenario):
         Gu.by_id[new_row.gu_code].add_gu_hour_data(new_row, GuHourData(new_row))
+
+    # факторизация заявок ГТПГ
+    # for fuel_type, factor in con.script_cursor(bfs, scenario=scenario):
+    #     for gu in Gu:
+    #         if fuel_type in gu.fuel_type_list:
+    #             gu.bid_factor = factor
 
     # load turned off blocks from vertica
     # for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):

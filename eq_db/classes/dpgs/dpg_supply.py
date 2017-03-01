@@ -24,6 +24,8 @@ class DpgSupply(Dpg):
         self.is_gaes = bool(gs_row.is_gaes)
         self.is_blocked = bool(gs_row.is_blocked)
         self.is_pintsch_gas = None
+        self.oes_code = gs_row.oes_code
+        self.name = gs_row.name
         self.fed_station_id = gs_row.fed_station_id
         self.dpg_demand_id = gs_row.dpg_demand_id
         self.station_id = gs_row.station_id
@@ -166,30 +168,37 @@ class DpgSupply(Dpg):
                             dgu.code, HYDROINTERVAL, 0, tariff, forced_smooth
                         ))
                 else:
-                    if not self.bid or not self.is_spot_trader:
+                    if not self.is_spot_trader:
                         continue
-                    if not self.bid[_hd.hour]:
+                    if not self.bid or not self.bid[_hd.hour]:
+                        print('DpgSupply %s bid mandatory!' % self.code)
                         continue
                     prev_volume = _hd.pmin
                     sum_pmax = self.sum_pmax_lst[_hd.hour]
                     sum_pmin = self.sum_pmin_lst[_hd.hour]
+                    bid_factor = max(gu.bid_factor for dgu in self.dgus for gu in dgu.gus)
 
                     for bid in self.bid[_hd.hour].interval_data:
+                        if bid is self.bid[_hd.hour].interval_data[-1]:
+                            bid_volume = sum_pmax
+                        else:
+                            bid_volume = bid.volume
+
                         if sum_pmax > sum_pmin:
-                            if min(bid.volume, sum_pmax) <= sum_pmin:
+                            if min(bid_volume, sum_pmax) <= sum_pmin:
                                 k_distr = _hd.kg_min
                             else:
                                 k_distr = _hd.kg_reg
                         else:
                             k_distr = _hd.kg
                         k_distr = k_distr if k_distr else 0
-                        bid_dgu = (bid.volume - sum_pmin) * k_distr + _hd.pmin
+                        bid_dgu = (bid_volume - sum_pmin) * k_distr + _hd.pmin
                         volume = min(bid_dgu, _hd.pmax) - prev_volume
                         if self.check_volume(volume):
                             prev_volume = bid_dgu
                             min_volume = volume if bid.interval_number < 0 else 0
                             price_acc = PMINPRICE if self.is_pintsch_gas else PRICEACC
-                            price = bid.price if bid.price else price_acc
+                            price = (bid.price * bid_factor) if bid.price else price_acc
                             self.distributed_bid.append((
                                 _hd.hour, dgu.node.code, volume, min_volume,
                                 price, dgu.code, bid.interval_number, 0, tariff, forced_smooth

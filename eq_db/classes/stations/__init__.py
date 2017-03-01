@@ -53,7 +53,7 @@ def send_stations_to_db(ora_con, tdate):
     with ora_con.cursor() as curs:
         curs.execute('''
             DELETE from trader
-            where full_name is null
+            where start_version is null
             and trader_type = :type
         ''', type=STATION_TRADER_TYPE)
 

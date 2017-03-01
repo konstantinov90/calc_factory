@@ -26,6 +26,7 @@ class Bid(object, metaclass=MetaBase):
         if self.dpg_id not in self.lst.keys():
             self.lst[self.dpg_id] = self
         else:
+            self.lst[self.dpg_id] = self
             print('%s bid reset!' % self.dpg_code)
         # if self.dpg_code not in self.lst['dpg_code'].keys():
         #     self.lst['dpg_code'][self.dpg_code] = self

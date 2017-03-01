@@ -5,7 +5,8 @@ from utils import DB
 from utils.trade_session_manager import ts_manager
 from utils.progress_bar import update_progress
 from sql_scripts import bid_init_script as bis, bid_hour_script as bhs, bid_pair_script as bps, \
-bid_init_script_v as bis_v, bid_hour_script_v as bhs_v, bid_pair_script_v as bps_v
+bid_init_script_v as bis_v, bid_hour_script_v as bhs_v, bid_pair_script_v as bps_v, \
+bid_factor_script as bfs
 from .bids import Bid
 
 

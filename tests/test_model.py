@@ -15,13 +15,15 @@ from utils.csv_comparator import csv_comparator
 TEST_RUN = False
 OPEN_NEW_SESSION = False
 USE_VERTICA = True
+SEND_TO_DB = True
 SAVE_MAT_FILE = True
 CALC_EQUILIBRIUM = True
-EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\189'
+CALC_TO_FINISH = True
+EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\190'
 COMPARE_DATA = False
 
-calc_date = datetime.datetime(2016, 2, 2)
-scenario = 13
+calc_date = datetime.datetime(2016, 1, 21)
+scenario = 23
 
 main_con = DB.OracleConnection()
 
@@ -38,43 +40,49 @@ except ValueError:
     print('check SIPR INIT session!')
     raise
 
-if OPEN_NEW_SESSION:
+if OPEN_NEW_SESSION and not TEST_RUN:
     # внутреннее копирование сессии
     # и разархивирование сессии
-    print('copying session...')
-    main_con.exec_insert('''
-    DECLARE
-    new_session_id number;
-    BEGIN
-      dbms_output.enable(1000000);
-      tsdb2.free_utils.g_full_diagnostic := 0;
-      tsdb2.free_utils.g_need_dbms_output := 1;
+    with main_con.cursor() as curs:
+        print('copying session...')
+        curs.execute('''
+        DECLARE
+        new_session_id number;
+        BEGIN
+          dbms_output.enable(1000000);
+          tsdb2.free_utils.g_full_diagnostic := 0;
+          tsdb2.free_utils.g_need_dbms_output := 1;
 
-      new_session_id := dp.copy_session_direct(:tsid_to_copy);
+          new_session_id := dp.copy_session_direct(:tsid_to_copy);
 
-      tsdb2.bid_interface.lotus_do_resetdatafromarchiv(
-            trade_session_id_in => new_session_id,
-            stable_group_in => null,
-            slotususer_in => 'Разархивация' );
+          tsdb2.bid_interface.lotus_do_resetdatafromarchiv(
+                trade_session_id_in => new_session_id,
+                stable_group_in => null,
+                slotususer_in => 'Разархивация' );
 
-      DELETE from auto$object_actions;
+          DELETE from auto$object_actions;
 
-      INSERT into auto$object_actions
-      select IS_NEED_ARCHIV, IS_NEED_CLEAR, OBJECT_NAME, OBJECT_GROUP, OWNER,
-             OBJECT_TYPE, IS_NEED_CLEAR_ASSIST, IS_NEED_ARCHIV_ASSIST
-      from tsdb2.auto$object_actions@tseur1.rosenergo.com;
+          INSERT into auto$object_actions
+          select IS_NEED_ARCHIV, IS_NEED_CLEAR, OBJECT_NAME, OBJECT_GROUP, OWNER,
+                 OBJECT_TYPE, IS_NEED_CLEAR_ASSIST, IS_NEED_ARCHIV_ASSIST
+          from tsdb2.auto$object_actions@tseur1.rosenergo.com;
 
-      update trade_session
-      set note = 'SIPR'
-      where status = 1;
+          update trade_session
+          set is_main = 0
+          where target_date = :calc_date;
 
-      commit;
-    end;
-    ''', tsid_to_copy=tsid)
-    print('session copied and disarchived!')
+          update trade_session
+          set note = 'SIPR_' || :scenario_string,
+          is_main = 1
+          where status = 1;
 
-if not TEST_RUN: # must be open session for calc_date!
-    try:
+          commit;
+        end;
+        ''', tsid_to_copy=tsid, calc_date=calc_date, scenario_string=str(scenario))
+        print('session copied and disarchived!')
+
+if not TEST_RUN:
+    try: # must be open session for calc_date!
         [(open_date,)] = main_con.exec_script('''
                             SELECT target_date
                             from trade_session
@@ -114,7 +122,31 @@ m.initialize_model(tsid, calc_date)
 if USE_VERTICA:
     m.augment_model(scenario, calc_date)
 m.intertwine_model()
-if not TEST_RUN:
+
+# костыли!!!!!
+
+if calc_date == datetime.datetime(2016, 2, 2) \
+    or calc_date == datetime.datetime(2016, 11, 13) \
+    or calc_date == datetime.datetime(2016, 1, 21):
+    for _hd in m.Section[5078].hour_data:
+        _hd.p_max = 3300
+    for _hd in m.Section[5072].hour_data:
+        _hd.p_max = 2700
+    for _hd in m.Line.by_key[526800, 524717, 0].hour_data:
+        _hd.state = True
+
+if calc_date == datetime.datetime(2016, 2, 13) \
+    or calc_date == datetime.datetime(2016, 3, 20) \
+    or calc_date == datetime.datetime(2016, 4, 14) \
+    or calc_date == datetime.datetime(2016, 7, 7):
+    for _hd in m.Section[5078].hour_data:
+        _hd.p_max = 3300
+    for _hd in m.Section[5072].hour_data:
+        _hd.p_max = 2700
+
+###########################
+
+if SEND_TO_DB and not TEST_RUN:
     m.fill_db(calc_date)
 
 ia = [tuple(i if i else 0 for i in impex_area.get_impex_area_data())
@@ -371,18 +403,18 @@ if COMPARE_DATA:
 
 def _hourize(input_data):
     """break data hour-wise"""
-    max_hour = max(d[0] for d in input_data)
+    HOURCOUNT = 24
     ret_data = []
-    for hour in range(max_hour + 1):
+    for hour in range(HOURCOUNT):
         data = [d[1:] for d in input_data if d[0] == hour]
         ret_data.append([{'InputData': [data] if len(data) > 1 else data}] if data else [])
     return ret_data
 
 def _hourize_group_constraints(group_data, constraint_data):
     """break group constraint data hour-wise"""
-    max_hour = max(d[0] for d in group_data)
+    HOURCOUNT = 24
     ret_data = []
-    for hour in range(max_hour + 1):
+    for hour in range(HOURCOUNT):
         data = [d[1:] for d in group_data if d[0] == hour]
         rges = []
         for inp_d in data:
@@ -411,7 +443,7 @@ def _transpose(input_data):
 common_file_name = 'common_%s_%s.mat' % ('v' if USE_VERTICA else '1', tdate)
 print(common_file_name)
 
-if SAVE_MAT_FILE:
+if SAVE_MAT_FILE and not TEST_RUN:
     data_to_load = {
         'Nodes': _hourize(eq),
         'NodesPQ': _hourize(pq),
@@ -446,10 +478,142 @@ if SAVE_MAT_FILE:
     # eng.save_mat_file(common_file_name, (data_to_load, data_to_load['Fuel']),
     #                   ('HourData', 'Fuel'), nargout=0)
 
-if CALC_EQUILIBRIUM:
+if CALC_EQUILIBRIUM and not TEST_RUN:
     eng = matlab.engine.start_matlab()
     eng.cd(EQUILIBRIUM_PATH, nargout=0)
     if eng.fn_Run(2, os.path.join(os.getcwd(), common_file_name), nargout=1):
         print(Exception('Equilbrium error!'))
     eng.fn_Run(3, nargout=1)
     eng.quit()
+
+if CALC_TO_FINISH and not TEST_RUN:
+    with main_con.cursor() as curs:
+        print('gather statistics')
+        curs.execute('''
+        DECLARE
+        l_owner varchar2(256) :='tsdb2';
+
+        -- Сбор статистики
+          procedure calc_stats(p_table_name varchar2)
+          is
+          begin
+            dbms_stats.gather_table_stats(ownname => l_owner, tabname => upper(p_table_name));
+          end;
+
+        BEGIN
+        for rec in (
+
+            SELECT * from auto$object_actions t
+            where upper(t.OBJECT_type) in ('TABLE')
+            order by object_name
+        ) loop
+        calc_stats(rec.OBJECT_NAME);
+        end loop;
+        end;
+        ''')
+
+        print('fill netnode')
+        curs.execute('''
+        begin
+        for rec in (
+            SELECT o$na, o$ny, o$name from (
+                select rn.o$na, rn.o$ny, rn.o$name from rastr_node rn, rastr_load rl, trader gtp
+                where rn.hour = rl.hour
+                and rn.hour = 0
+                and gtp.consumer2 = rl.o$consumer
+                and rn.o$ny = rl.o$node
+                and nvl(gtp.is_unpriced_zone, 0) = 0
+                and rn.o$ny not in (select node_code from netnode)
+                group by rn.o$na, rn.o$ny, rn.o$name
+
+                union all
+
+                select rn.o$na, rn.o$ny, rn.o$name from tsdb2.rastr_generator rg,
+                tsdb2.trader gtp, tsdb2.trader rge,
+                tsdb2.rastr_node rn
+                where rg.hour = 0
+                and rg.hour = rn.hour
+                and rg.o$node = rn.o$ny
+                and rge.parent_object_id = gtp.tradeR_id
+                and rge.trader_type = 103
+                and rg.o$num = rge.tradeR_code
+                and rg.o$node not in (select node_code from tsdb2.netnode)
+                and rn.o$na not in (select n$na from tsdb2.impex_na where n$na is not null)
+                group by rn.o$na, rn.o$ny, rn.o$name
+            ) group by o$na, o$ny, o$name
+        ) loop
+
+        insert into netnode
+        SELECT
+        (select max(rec_node_id) + 100 from netnode) rec_node_id
+        , start_version, end_version, rec.o$ny node_code,
+               begin_date, end_date, node_name, rec.o$na es_ref, zsp_code,
+               is_deleted, real_node_id
+          FROM netnode a
+          where node_code in (
+          select max(node_code) from netnode
+          );
+          commit;
+        end loop;
+        end;
+        ''')
+
+        print('aggregate')
+        curs.execute('''
+        declare
+        rio_ver number;
+        has_offtrade_area number;
+        dt date;
+        begin
+        SELECT max(start_version) into rio_ver FROM trader;
+        select target_date into dt from trade_session where status = 1;
+
+        bid_prepare_distrib.isolated_zones;
+
+        select
+        case
+            when count(*) > 0 then 1
+            else 0
+        end into has_offtrade_area
+        from offtrade_isolated_area;
+
+        bid_interface.lotus_do_agregat(dt,rio_ver,0.03,has_offtrade_area,0,'Агрегация');
+
+        end;
+        ''')
+
+        print('archive')
+        curs.execute('''
+        begin
+        bid_utils.arch_table('AGREGAT', null, null);
+        bid_utils.arch_table('ASSIST', null, null);
+        bid_utils.arch_table('BID', null, null);
+        bid_utils.arch_table('BID2', null, null);
+        bid_utils.arch_table('BID_SRC', null, null);
+        bid_utils.arch_table('BILATERAL_MATRIX', null, null);
+        bid_utils.arch_table('CARANA', null, null);
+        bid_utils.arch_table('CONSUMER_INFO', null, null);
+        bid_utils.arch_table('CSV', null, null);
+        bid_utils.arch_table('DICS', null, null);
+        bid_utils.arch_table('DISTR', null, null);
+        bid_utils.arch_table('DISTR1', null, null);
+        bid_utils.arch_table('EVR', null, null);
+        bid_utils.arch_table('EVR_SRC', null, null);
+        bid_utils.arch_table('FirstPoint', null, null);
+        bid_utils.arch_table('GGTPS_DISTR', null, null);
+        bid_utils.arch_table('HELP_IMPEX', null, null);
+        bid_utils.arch_table('IASUKUT', null, null);
+        bid_utils.arch_table('IMP_PR_REDUCE', null, null);
+        bid_utils.arch_table('LIMITS', null, null);
+        bid_utils.arch_table('MGP', null, null);
+        bid_utils.arch_table('PNT', null, null);
+        bid_utils.arch_table('RC_DISTR', null, null);
+        bid_utils.arch_table('RD', null, null);
+        bid_utils.arch_table('RD2', null, null);
+        bid_utils.arch_table('REPORT', null, null);
+        bid_utils.arch_table('RIO_2', null, null);
+        bid_utils.arch_table('RIO__TRADER_SPEC_DATE', null, null);
+        bid_utils.arch_table('TRADER', null, null);
+        bid_utils.arch_table('VSVGO', null, null);
+        end;
+        ''')

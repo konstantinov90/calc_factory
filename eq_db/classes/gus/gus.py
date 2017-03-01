@@ -10,6 +10,7 @@ class Gu(object, metaclass=MetaBase):
         self.is_in_rio = True
         # self.is_remove = False
         self._id, self.code, self.dgu_id, self.fuel_types, self.fixed_power = gs_row
+        self.bid_factor = 1
         if self.fuel_types:
             self.fuel_type_list = [int(fuel_type) for fuel_type in self.fuel_types.split(',')]
         else:
