@@ -47,7 +47,8 @@ def send_stations_to_db(ora_con, tdate):
         if station.is_new:
             data.append((
                 station._id, station._id, station.code, station.type,
-                station.category, tdate, tdate, STATION_TRADER_TYPE
+                station.category, tdate, tdate, STATION_TRADER_TYPE,
+                station.participant_id
             ))
 
     with ora_con.cursor() as curs:
@@ -59,6 +60,6 @@ def send_stations_to_db(ora_con, tdate):
 
         curs.executemany('''
             INSERT into trader (trader_id, real_trader_id, trader_code, station_type,
-            station_category, begin_date, end_date, trader_type)
-            values (:1, :2, :3, :4, :5, :6, :7, :8)
+            station_category, begin_date, end_date, trader_type, parent_object_id)
+            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)
         ''', data)

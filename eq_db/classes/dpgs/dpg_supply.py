@@ -1,18 +1,7 @@
 """Class DpgSupply."""
 # import re
-import settings
+import constants as C
 from .base_dpg import Dpg
-
-HOURCOUNT = 24
-HYDROSTATIONTYPE = 2
-HYDROINTERVAL = 0
-PMINTECHPRICE = 0
-PMINTECHINTERVAL = -20
-PMINPRICE = 0.01
-PMININTERVAL = -18
-TARIFF = 9999
-PRICEACC = 0.8
-PINTSCHGASTFUEL = 7
 
 
 class DpgSupply(Dpg):
@@ -116,14 +105,14 @@ class DpgSupply(Dpg):
         """overriden abstract method"""
         for dgu in self.dgus:
             for unit in dgu.gus:
-                if PINTSCHGASTFUEL in unit.fuel_type_list:
+                if C.PINTSCHGASTFUEL in unit.fuel_type_list:
                     self.is_pintsch_gas = True
                     break
         if self.is_unpriced_zone: # or self.is_gaes or self.is_blocked:
             return
 
-        tariff = 0.8 if self.participant_id in settings.forced_smooth_participants else TARIFF
-        forced_smooth = 1 if self.participant_id in settings.forced_smooth_participants else 0
+        tariff = 0.8 if self.participant_id in C.forced_smooth_participants else C.TARIFF
+        forced_smooth = 1 if self.participant_id in C.forced_smooth_participants else 0
         for dgu in self.dgus:
             for _hd in dgu.hour_data:
                 # -20 ступень
@@ -132,12 +121,12 @@ class DpgSupply(Dpg):
                 else:
                     volume = _hd.p if self.is_blocked or self.is_gaes \
                                 else max(_hd.pmin_agg, _hd.pmin_so,
-                                         _hd.pmin if self.station.type == HYDROSTATIONTYPE else 0)
+                                         _hd.pmin if self.station.type == C.HYDROSTATIONTYPE else 0)
                 if self.check_volume(volume):
                     try:
                         self.distributed_bid.append((
                             _hd.hour, dgu.node.code, volume, volume,
-                            PMINTECHPRICE, dgu.code, PMINTECHINTERVAL, 0, tariff, forced_smooth
+                            C.PMINTECHPRICE, dgu.code, C.PMINTECHINTERVAL, 0, tariff, forced_smooth
                         ))
                     except AttributeError:
                         print('ERROR! DGU %i has no node! (DPG %s)' % (dgu.code, self.code))
@@ -148,7 +137,7 @@ class DpgSupply(Dpg):
                 if self.check_volume(volume):
                     self.distributed_bid.append((
                         _hd.hour, dgu.node.code, volume, volume,
-                        PMINPRICE, dgu.code, PMININTERVAL, 0, tariff, forced_smooth
+                        C.PMINPRICE, dgu.code, C.PMININTERVAL, 0, tariff, forced_smooth
                     ))
                 # интегральная ступень
                 if dgu.wsumgen:
@@ -157,15 +146,15 @@ class DpgSupply(Dpg):
                         if self.check_volume(volume):
                             self.distributed_bid.append((
                                 _hd.hour, dgu.node.code, volume, 0, dgu.wsumgen.price,
-                                dgu.code, HYDROINTERVAL, dgu.wsumgen.integral_id,
+                                dgu.code, C.HYDROINTERVAL, dgu.wsumgen.integral_id,
                                 tariff, forced_smooth
                             ))
-                elif self.station.type == HYDROSTATIONTYPE:
+                elif self.station.type == C.HYDROSTATIONTYPE:
                     volume = min(_hd.p, _hd.pmax) - _hd.pmin
                     if self.check_volume(volume):
                         self.distributed_bid.append((
-                            _hd.hour, dgu.node.code, volume, volume, PMINPRICE,
-                            dgu.code, HYDROINTERVAL, 0, tariff, forced_smooth
+                            _hd.hour, dgu.node.code, volume, volume, C.PMINPRICE,
+                            dgu.code, C.HYDROINTERVAL, 0, tariff, forced_smooth
                         ))
                 else:
                     if not self.is_spot_trader:
@@ -197,7 +186,7 @@ class DpgSupply(Dpg):
                         if self.check_volume(volume):
                             prev_volume = bid_dgu
                             min_volume = volume if bid.interval_number < 0 else 0
-                            price_acc = PMINPRICE if self.is_pintsch_gas else PRICEACC
+                            price_acc = C.PMINPRICE if self.is_pintsch_gas else C.PRICEACC
                             price = (bid.price * bid_factor) if bid.price else price_acc
                             self.distributed_bid.append((
                                 _hd.hour, dgu.node.code, volume, min_volume,

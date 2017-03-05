@@ -76,17 +76,3 @@ class Load(object, metaclass=MetaBase):
         self._nodes_data[node_code].add_hour_data(rl_row)
         if not hour in self._hour_data.keys():
             self._hour_data[hour] = LoadHourData(rl_row)
-
-    def fill_db(self, con):
-        """fill kc_dpg_node"""
-        script = """INSERT into kc_dpg_node (hour, kc_nodedose, sta, node, dpg_id, is_system,
-                                dpg_code, consumer2)
-                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8)"""
-
-        data = []
-        for node_data in self.nodes_data:
-            for _hd in node_data.hour_data:
-                data.append(_hd.get_insert_data() + (node_data.node_code,) +
-                            attrgetter('_id', 'is_system', 'code', 'consumer_code')(self.dpg))
-        with con.cursor() as curs:
-            curs.executemany(script, data)

@@ -13,7 +13,7 @@ from utils import DB
 from utils.csv_comparator import csv_comparator
 
 TEST_RUN = False
-OPEN_NEW_SESSION = False
+OPEN_NEW_SESSION = True
 USE_VERTICA = True
 SEND_TO_DB = True
 SAVE_MAT_FILE = True
@@ -22,8 +22,8 @@ CALC_TO_FINISH = True
 EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\190'
 COMPARE_DATA = False
 
-calc_date = datetime.datetime(2016, 1, 21)
-scenario = 23
+calc_date = datetime.datetime(2016, 4, 14)
+scenario = 28
 
 main_con = DB.OracleConnection()
 
@@ -124,7 +124,6 @@ if USE_VERTICA:
 m.intertwine_model()
 
 # костыли!!!!!
-
 if calc_date == datetime.datetime(2016, 2, 2) \
     or calc_date == datetime.datetime(2016, 11, 13) \
     or calc_date == datetime.datetime(2016, 1, 21):
@@ -401,13 +400,13 @@ if COMPARE_DATA:
     ''', 'eq_db_section_lines_impex_data.csv', 5, 2, 3, 1, 0, tsid=tsid)
 
 
-def _hourize(input_data):
+def _hourize(input_data, zero_size = mat4py.ZeroSize(0)):
     """break data hour-wise"""
     HOURCOUNT = 24
     ret_data = []
     for hour in range(HOURCOUNT):
         data = [d[1:] for d in input_data if d[0] == hour]
-        ret_data.append([{'InputData': [data] if len(data) > 1 else data}] if data else [])
+        ret_data.append([{'InputData': [data] if len(data) > 1 else data if data else zero_size}])
     return ret_data
 
 def _hourize_group_constraints(group_data, constraint_data):
@@ -460,14 +459,14 @@ if SAVE_MAT_FILE and not TEST_RUN:
         'SectionRegions': {'InputData': [ia]},
         'Demands': _hourize(ed),
         'Supplies': _hourize(es),
-        'ImpexBids': _hourize(eimp),
+        'ImpexBids': _hourize(eimp, mat4py.ZeroSize(5)),
         'Generators': _hourize(eg),
         'PriceZoneDemands': _hourize(pzd),
         'Fuel': {'InputData': [fd]},
         'GeneratorsDataLastHour': {'InputData': [lh]},
         'HourNumbers': [{i} for i in range(24)],
         'Settings': {'InputData': _transpose(stngs)},
-        'DemandResponse': {'InputData': [dr]},
+        'DemandResponse': {'InputData': [dr] if dr else mat4py.ZeroSize(3)},
         'PeakSo': {'InputData': [ps]},
         'PriceZoneSettings': {'InputData': [pz_dr]}
     }

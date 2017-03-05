@@ -1,5 +1,6 @@
 """Class AreaHourData."""
 
+
 class AreaHourData(object):
     """class AreaHourData"""
     def __init__(self, ra_row):

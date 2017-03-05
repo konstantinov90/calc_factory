@@ -1,11 +1,8 @@
 """Abstract class DpgDemand."""
+import constants
 from .base_dpg import Dpg
 from .dpg_disqualified import DpgDisqualified
 from ..bids_max_prices import BidMaxPrice
-
-HOURCOUNT = 24
-UNPRICED_AREA = ('PCHITAZN', 'PAMUREZN')
-GAES_INTERVAL = -32
 
 
 class DpgDemand(Dpg):
@@ -119,7 +116,7 @@ class DpgDemand(Dpg):
                 volume = -_hd.p
                 if self.check_volume(volume):
                     self.distributed_bid.append((
-                        _hd.hour, 1, self.consumer_code, GAES_INTERVAL,
+                        _hd.hour, 1, self.consumer_code, constants.GAES_INTERVAL,
                         dgu.node.code, volume, BidMaxPrice[_hd.hour].price * 1e6, 1
                     ))
 

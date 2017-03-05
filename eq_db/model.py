@@ -1,22 +1,22 @@
 """Initialize and intertwine model."""
 import time
 from concurrent import futures
-from itertools import chain
 
 from utils import DB
-from utils.progress_bar import update_progress
 from eq_db.classes.sections import make_sections, add_sections_vertica, Section
 from eq_db.classes.dgu_groups import make_dgu_groups, DguGroup
 from eq_db.classes.bids import make_bids, add_bids_vertica, send_bids_to_db, Bid
 from eq_db.classes.stations import make_stations, add_stations_vertica, \
                                    send_stations_to_db, Station
-from eq_db.classes.areas import make_areas, add_areas_vertica, Area
+from eq_db.classes.areas import make_areas, add_areas_vertica, send_areas_to_db, Area
 from eq_db.classes.impex_areas import make_impex_areas, ImpexArea
 from eq_db.classes.nodes import make_nodes, add_nodes_vertica, send_nodes_to_db, Node
-from eq_db.classes.loads import make_loads, add_loads_vertica, Load
+from eq_db.classes.loads import make_loads, add_loads_vertica, send_loads_to_db, Load
 from eq_db.classes.consumers import make_consumers, add_consumers_vertica, \
                                     send_consumers_to_db, Consumer
-from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica, send_dpgs_to_db
+from eq_db.classes.dpgs import make_dpgs, add_dpgs_vertica, \
+                               send_dpgs_to_db, send_dpgs_to_kc_dpg_node, \
+                               send_dpgs_to_kg_dpg_rge, send_dpgs_to_node_bid_pair
 from eq_db.classes.dpgs.base_dpg import Dpg
 from eq_db.classes.dpgs.dpg_demand import DpgDemand
 from eq_db.classes.dpgs.dpg_demand_fsk import DpgDemandFSK
@@ -179,71 +179,17 @@ def fill_db(tdate):
     send_dpgs_to_db(con, tdate)
     send_stations_to_db(con, tdate)
     send_consumers_to_db(con)
+    send_loads_to_db(con)
+    send_areas_to_db(con)
     send_nodes_to_db(con)
     send_lines_to_db(con)
     send_dgus_to_db(con, tdate)
+    send_dpgs_to_kc_dpg_node(con)
+    send_dpgs_to_kg_dpg_rge(con)
+    send_dpgs_to_node_bid_pair(con)
 
-    con.exec_insert('DELETE from kc_dpg_node')
-    for i, dpg in enumerate(chain(DpgDemandLoad, DpgDemandSystem)):
-        dpg.fill_db(con)
-        update_progress((i + 1) / (len(DpgDemandLoad) + len(DpgDemandSystem)))
-
-    con.exec_insert('DELETE from kg_dpg_rge')
-    for i, dgu in enumerate(Dgu):
-        dgu.fill_db(con)
-        update_progress((i + 1) / len(Dgu))
-
-
-    con.exec_insert('DELETE from node_bid_pair')
-    _es = []
-    _ed = []
-    for dpg in DpgSupply:
-        for bid in dpg.get_distributed_bid():
-            if not bid[7]:
-                _es.append(bid[:7] + (dpg.code, Node[bid[1]].price_zone * 2))
-
-    for dpg in DpgDemand:
-        for bid in dpg.get_distributed_bid():
-            if dpg.supply_gaes:
-                _es.append((
-                    bid[0], bid[4], -bid[5], -bid[5], 0, dpg.supply_gaes.dgus[0].code,
-                    bid[3], dpg.supply_gaes.code, Node[bid[4]].price_zone * 2
-                ))
-            else:
-                _ed.append(bid[:1] + bid[2:-1] + (dpg.code, Node[bid[4]].price_zone * 2))
-
-    for dpg in DpgDemandFSK:
-        if not dpg.area:
-            continue
-        for node in dpg.area.nodes:
-            for _hd in node.hour_data:
-                _ed.append((
-                    _hd.hour, None, None, node.code, _hd.pn, 0, dpg.code, node.price_zone * 2
-                ))
-
-    with con.cursor() as curs:
-        curs.executemany('''INSERT into node_bid_pair (hour, node, volume, min_volume,
-                            price, num, interval_num, dpg_code, price_zone_mask)
-                            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)
-                         ''', _es)
-        curs.executemany('''INSERT into node_bid_pair (hour, consumer2, interval_num,
-                            node, volume, price, dpg_code, price_zone_mask)
-                            values (:1, :2, :3, :4, :5, :6, :7, :8)
-                         ''', _ed)
-        curs.execute('''MERGE INTO node_bid_pair n1
-                    using (SELECT sum(volume) over (partition by dpg_code, num, node, hour order by interval_num) v,
-                                dpg_Code, num, consumer2, node, interval_num, hour
-                          from node_bid_pair) n2
-                    on (n1.dpg_code = n2.dpg_code
-                    and nvl(n1.num,0) = nvl(n2.num,0)
-                    and nvl(n1.node,0) = nvl(n2.node,0)
-                    and nvl(n1.consumer2,0) = nvl(n2.consumer2,0)
-                    and nvl(n1.interval_num,999) = nvl(n2.interval_num,999)
-                    and n1.hour = n2.hour)
-                    when matched then update
-                    set n1.volume = n2.v''')
-
-        if tdate.year < 2017:
+    if tdate.year < 2017:
+        with con.cursor() as curs:
             curs.execute('''
                 UPDATE trader
                 set oes = 3

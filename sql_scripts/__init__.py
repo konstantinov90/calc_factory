@@ -487,6 +487,7 @@ class StationsScript(Script):
             code
             type
             category
+            participant_id
         ''')
         self._init_tuple()
 
@@ -578,3 +579,16 @@ class HydroNewVolumeScript(Script):
         self._init_tuple()
 
 hydro_new_volume_script = HydroNewVolumeScript()
+
+
+class VSVGOScript(Script):
+    def __init__(self):
+        super().__init__(r'Vertica\vsvgo.sql')
+        self.index = make_index('''
+            gu_code
+            hour
+            state
+        ''')
+        self._init_tuple()
+
+vsvgo_script = VSVGOScript()

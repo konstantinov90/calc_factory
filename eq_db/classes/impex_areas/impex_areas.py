@@ -1,6 +1,6 @@
 """Class ImpexArea."""
 import itertools
-from settings import section_nkaz
+import constants
 from ..meta_base import MetaBase
 
 
@@ -24,7 +24,7 @@ class ImpexArea(object, metaclass=MetaBase):
 
     def get_impex_area_data(self):
         """get eq_db_impex_area view data"""
-        if self.section_code == section_nkaz:
+        if self.section_code == constants.section_nkaz:
             price_zone = 0
         elif self.is_europe:
             price_zone = 1

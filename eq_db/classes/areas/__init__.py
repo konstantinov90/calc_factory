@@ -1,4 +1,7 @@
 """Create Area instances."""
+from operator import attrgetter
+
+import constants
 from utils import DB
 from utils.trade_session_manager import ts_manager
 from sql_scripts import rastr_areas_script as ra
@@ -26,3 +29,24 @@ def add_areas_vertica(scenario):
         if not area:
             area = Area(new_row, is_new=True)
         area.add_area_hour_data(new_row)
+
+@ts_manager
+def send_areas_to_db(ora_con):
+    """save new instances to current session"""
+    data = []
+
+    for area in Area:
+        if area.is_new:
+            for _hd in area.hour_data:
+                data.append((
+                    _hd.hour, area.code, _hd.losses, _hd.load_losses
+                ))
+
+    with ora_con.cursor() as curs:
+        curs.execute('''DELETE from rastr_area
+                        where loading_protocol is null''')
+
+        curs.executemany('''
+            INSERT into rastr_area (hour, o$na, o$dp, o$dp_nag)
+            values (:1, :2, :3, :4)
+        ''', data)

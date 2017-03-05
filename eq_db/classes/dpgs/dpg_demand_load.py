@@ -1,8 +1,8 @@
 """Class DpgDemandLoad"""
+import constants
 from .dpg_demand import DpgDemand
 from ..bids_max_prices import BidMaxPrice
 
-FED_STATION_INTERVAL = -42
 
 class DpgDemandLoad(DpgDemand):
     """class DpgDemandLoad"""
@@ -41,7 +41,7 @@ class DpgDemandLoad(DpgDemand):
                 value = _ln.hour_data[hour].node_dose / 100 * volume
                 if self.check_volume(value):
                     self.distributed_bid.append((
-                        hour, 1, self.consumer_code, FED_STATION_INTERVAL,
+                        hour, 1, self.consumer_code, constants.FED_STATION_INTERVAL,
                         _ln.node.code, value, BidMaxPrice[hour].price * 1e6, 1
                     ))
 
@@ -109,26 +109,3 @@ class DpgDemandLoad(DpgDemand):
                 _hd.set_pn_dpg_node_share(node_hour.pn * corrected_pdem)
                 _hd.set_pdem_dpg_node_share(node_hour.pdem * corrected_pdem)
                 node.add_to_retail(_hd.hour, _hd.pdem_dpg_node_share)
-
-    def fill_db(self, con):
-        """fill kc_dpg_node"""
-        if self.supply_gaes:
-            script = """INSERT into kc_dpg_node (hour, kc_nodedose, sta, node, dpg_id, is_system,
-                                    dpg_code, consumer2)
-                        VALUES (:1, :2, :3, :4, :5, :6, :7, :8)"""
-            data = []
-            for dgu in self.supply_gaes.dgus:
-                for _hd in dgu.hour_data:
-                    k_distr = _hd.kg if _hd.kg else dgu.kg_fixed
-                    data.append((_hd.hour, k_distr, not dgu.node.get_node_hour_state(_hd.hour),
-                                dgu.node.code, self._id, self.is_system, self.code, self.consumer_code))
-            with con.cursor() as curs:
-                try:
-                    curs.executemany(script, data)
-                except Exception:
-                    for row in data:
-                        print(row)
-                    raise
-
-        elif not self.is_unpriced_zone:
-            self.load.fill_db(con)

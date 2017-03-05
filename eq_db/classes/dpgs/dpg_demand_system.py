@@ -1,10 +1,7 @@
 """Class DpgDemandSystem."""
+import constants
 from .dpg_demand import DpgDemand
 from ..bids_max_prices import BidMaxPrice
-
-UNPRICED_AREA = ('PCHITAZN', 'PAMUREZN')
-UNPRICED_AREA_INTERVAL = -55
-FED_STATION_INTERVAL = -52
 
 
 class DpgDemandSystem(DpgDemand):
@@ -57,7 +54,7 @@ class DpgDemandSystem(DpgDemand):
             for node_hd in node.hour_data:
                 if self.check_volume(node_hd.pn):
                     self.distributed_bid.append((
-                        node_hd.hour, 1, self.consumer_code, UNPRICED_AREA_INTERVAL,
+                        node_hd.hour, 1, self.consumer_code, constants.UNPRICED_AREA_INTERVAL,
                         node.code, node_hd.pn, BidMaxPrice[node_hd.hour].price * 1e6, 1
                     ))
 
@@ -87,7 +84,7 @@ class DpgDemandSystem(DpgDemand):
                 value = max(node_hd.pn, 0) / p_n * volume
                 if self.check_volume(value) and node_hd.state and node_hd.type:
                     self.distributed_bid.append((
-                        hour, 1, self.consumer_code, FED_STATION_INTERVAL,
+                        hour, 1, self.consumer_code, constants.FED_STATION_INTERVAL,
                         node.code, value, BidMaxPrice[node_hd.hour].price * 1e6, 1
                     ))
 
@@ -96,7 +93,7 @@ class DpgDemandSystem(DpgDemand):
         """overriden abstract method"""
         if self.is_fed_station and not self.is_gp and not self.is_unpriced_zone:
             self._distribute_fed_station()
-        elif self.code in UNPRICED_AREA:
+        elif self.code in constants.UNPRICED_AREA:
             self._distribute_unpriced_area()
         elif self.supply_gaes:
             self._distribute_gaes()
@@ -128,11 +125,3 @@ class DpgDemandSystem(DpgDemand):
                                 hour, 1, self.consumer_code, interval, node.code,
                                 volume, price, 0 if bid.price else 1
                             ))
-
-    def fill_db(self, con):
-        """fill kc_dpg_node"""
-        if not self.is_unpriced_zone or self.code in UNPRICED_AREA:
-            try:
-                self.area.fill_db(con)
-            except AttrbuteError as ae:
-                print('%s -> %r' % (self.code, ae))

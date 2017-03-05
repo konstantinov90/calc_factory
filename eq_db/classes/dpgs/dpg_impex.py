@@ -1,11 +1,7 @@
 """Class DpgImpex."""
+import constants as C
 from .base_dpg import Dpg
 from ..bids_max_prices import BidMaxPrice
-
-HOURCOUNT = 24
-PMININTERVAL = -7
-PMINPRICEACC = 0
-PRICEACC = 0.8
 
 
 class DpgImpex(Dpg):
@@ -48,10 +44,10 @@ class DpgImpex(Dpg):
             elif self.direction == 2:
                 prev_volume = -min(_hd.p_max, 0)
             if prev_volume:
-                price = BidMaxPrice[hour].price if self.direction == 1 else PMINPRICEACC
+                price = BidMaxPrice[hour].price if self.direction == 1 else C.PMINPRICEACC
                 self.distributed_bid.append((
                     _hd.hour, self.section.code, self.direction,
-                    PMININTERVAL, prev_volume, price, 1
+                    C.PMININTERVAL_IMPEX, prev_volume, price, 1
                 ))
             if not self.bid or not self.is_spot_trader:
                 continue
@@ -67,7 +63,7 @@ class DpgImpex(Dpg):
                         price = price_original
                         is_price_acceptance = 0
                     else:
-                        price = BidMaxPrice[hour].price if self.direction == 1 else PRICEACC
+                        price = BidMaxPrice[hour].price if self.direction == 1 else C.PRICEACC
                         is_price_acceptance = 1
                     self.distributed_bid.append((
                         _hd.hour, self.section.code, self.direction,

@@ -1,13 +1,11 @@
 """Class Dgu."""
-from operator import attrgetter
 from functools import partial
+from operator import attrgetter
+import constants as C
 from utils.subscriptable import subscriptable
 from ..meta_base import MetaBase
 from .dgus_hour_data import DguHourData
 from .dgus_last_hour import DguLastHour
-
-HYDROSTATIONTYPE = 2
-HOURCOUNT = 24
 
 
 class Dgu(object, metaclass=MetaBase):
@@ -65,7 +63,7 @@ class Dgu(object, metaclass=MetaBase):
 
     def modify_state(self):
         """set instance to remove"""
-        if self.dpg.is_unpriced_zone or self.dpg.station.type == HYDROSTATIONTYPE:
+        if self.dpg.is_unpriced_zone or self.dpg.station.type == C.HYDROSTATIONTYPE:
             return
         turned_off = False
         for _hd in self.hour_data:
@@ -170,7 +168,7 @@ class Dgu(object, metaclass=MetaBase):
             self.sum_p += _hd.p
             self.sum_pmax += _hd.pmax
 
-        if self.dpg.station.type == HYDROSTATIONTYPE and not self.sum_p:
+        if self.dpg.station.type == C.HYDROSTATIONTYPE and not self.sum_p:
             return  # если это РГЕ ГЭС и прогноз = 0 - возврат
         if not self.sum_pmax:
             return  # если РГЕ выключена - возврат

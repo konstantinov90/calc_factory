@@ -1,5 +1,6 @@
 """Create Dgu instances."""
 from operator import attrgetter
+import constants as C
 from utils import DB
 from utils.trade_session_manager import ts_manager
 from sql_scripts import dgus_script as dgs
@@ -9,8 +10,6 @@ from sql_scripts import rastr_gen_script_v as rgs_v
 from sql_scripts import generators_last_hour_script as glhs
 from sql_scripts import hydro_new_volume_script as hnvs
 from .dgus import Dgu
-
-DGU_TRADER_TYPE = 103
 
 
 @ts_manager
@@ -58,7 +57,7 @@ def send_dgus_to_db(ora_con, tdate):
     data = []
     attrs = '_id _id code dpg_id fixed_power'.split()
     atg = attrgetter(*attrs)
-    const_part = (tdate, tdate, DGU_TRADER_TYPE)
+    const_part = (tdate, tdate, C.DGU_TRADER_TYPE)
     attrs_len = len(attrs) + len(const_part)
     h_data = []
     hour_attrs = '''hour pmin pmax pmin_agg pmax_agg pmin_tech pmax_tech
@@ -81,7 +80,7 @@ def send_dgus_to_db(ora_con, tdate):
             DELETE from trader
             where start_version is null
             and trader_type = :type
-        ''', type=DGU_TRADER_TYPE)
+        ''', type=C.DGU_TRADER_TYPE)
         curs.execute('''
             DELETE from rastr_generator
         ''')
