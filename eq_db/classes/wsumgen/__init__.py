@@ -9,6 +9,7 @@ from .wsumgen import Wsumgen
 def make_wsumgen(tsid):
     """create Wsumgen instances"""
     con = DB.OracleConnection()
+    Wsumgen.clear()
 
-    for new_row in con.script_cursor(ws, tsid=tsid):
+    for new_row in con.script_cursor(ws, tsid=DB.Partition(tsid)):
         Wsumgen(new_row)

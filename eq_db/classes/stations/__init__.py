@@ -12,8 +12,9 @@ STATION_TRADER_TYPE = 102
 def make_stations(tsid):
     """create Station instances"""
     con = DB.OracleConnection()
+    Station.clear()
 
-    for new_row in con.script_cursor(ss, tsid=tsid):
+    for new_row in con.script_cursor(ss, tsid=DB.Partition(tsid)):
         Station(new_row)
 
 @ts_manager

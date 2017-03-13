@@ -21,7 +21,8 @@ class Script(object):
         return self.index[item]
 
     def _read_file(self):
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.filename)) as f:
+        file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.filename)
+        with open(file_path, encoding='utf-8') as f:
             self.query = f.read()
 
     def _init_tuple(self):
@@ -592,3 +593,33 @@ class VSVGOScript(Script):
         self._init_tuple()
 
 vsvgo_script = VSVGOScript()
+
+class ReportClosedSections(Script):
+    def __init__(self):
+        super().__init__(r'reports\closed_sections.sql')
+
+report_closed_sections = ReportClosedSections()
+
+class ReportFullAnalysis(Script):
+    def __init__(self):
+        super().__init__(r'reports\full_analysis.sql')
+
+report_full_analysis = ReportFullAnalysis()
+
+class ReportRegionPrices(Script):
+    def __init__(self):
+        super().__init__(r'reports\region_prices.sql')
+
+report_region_prices = ReportRegionPrices()
+
+class ReportConsolidated(Script):
+    def __init__(self):
+        super().__init__(r'reports\consolidated_report.sql')
+
+report_consolidated = ReportConsolidated()
+
+class ReportGeneratorsReloading(Script):
+    def __init__(self):
+        super().__init__(r'reports\generators_reloading.sql')
+
+report_generators_reloading = ReportGeneratorsReloading()

@@ -13,8 +13,9 @@ from .areas import Area
 def make_areas(tsid):
     """create Area instances"""
     con = DB.OracleConnection()
+    Area.clear()
 
-    for new_row in con.script_cursor(ra, tsid=tsid):
+    for new_row in con.script_cursor(ra, tsid=DB.Partition(tsid)):
         area = Area[new_row.area]
         if not area:
             area = Area(new_row)

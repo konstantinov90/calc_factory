@@ -16,16 +16,17 @@ HOURCOUNT = 24
 def make_bids(tsid):
     """create Bid instances"""
     con = DB.OracleConnection()
+    Bid.clear()
 
-    for new_row in con.script_cursor(bis, tsid=tsid):
+    for new_row in con.script_cursor(bis, tsid=DB.Partition(tsid)):
         Bid(new_row)
 
-    for new_row in con.script_cursor(bhs, tsid=tsid):
+    for new_row in con.script_cursor(bhs, tsid=DB.Partition(tsid)):
         bid = Bid[new_row.dpg_id]
         if bid:
             bid.add_hour_data(new_row)
 
-    for new_row in con.script_cursor(bps, tsid=tsid):
+    for new_row in con.script_cursor(bps, tsid=DB.Partition(tsid)):
         bid = Bid[new_row.dpg_id]
         if bid:
             bid.add_intervals_data(new_row)

@@ -3,9 +3,7 @@ from operator import attrgetter
 from utils import DB
 from utils.trade_session_manager import ts_manager
 from sql_scripts import lines_script as ls, lines_script_v as ls_v, lines_out_v as lo_v
-from sql_scripts import lines_script_v as ls_v
 from .lines import Line
-from .lines import LineHourData
 
 HOURCOUNT = 24
 
@@ -14,8 +12,9 @@ HOURCOUNT = 24
 def make_lines(tsid):
     """create Line instances"""
     con = DB.OracleConnection()
+    Line.clear()
 
-    for new_row in con.script_cursor(ls, tsid=tsid):
+    for new_row in con.script_cursor(ls, tsid=DB.Partition(tsid)):
         node_from_code = new_row.node_from
         node_to_code = new_row.node_to
         line_par_num = new_row.n_par

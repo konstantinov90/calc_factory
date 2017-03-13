@@ -10,8 +10,9 @@ from .consumers import Consumer
 def make_consumers(tsid):
     """create Consumer instances"""
     con = DB.OracleConnection()
+    Consumer.clear()
 
-    for new_row in con.script_cursor(rc, tsid=tsid):
+    for new_row in con.script_cursor(rc, tsid=DB.Partition(tsid)):
         consumer = Consumer[new_row.consumer_code]
         if not consumer:
             consumer = Consumer(new_row)

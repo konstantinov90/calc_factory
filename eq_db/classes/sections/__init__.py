@@ -13,15 +13,16 @@ from .sections import Section
 def make_sections(tsid):
     """create Section instances"""
     con = DB.OracleConnection()
+    Section.clear()
 
-    for new_row in con.script_cursor(ss, tsid=tsid):
+    for new_row in con.script_cursor(ss, tsid=DB.Partition(tsid)):
         section_code = new_row.code
         section = Section[section_code]
         if not section:
             section = Section(new_row)
         section.add_section_hour_data(new_row)
 
-    for new_row in con.script_cursor(lgs, tsid=tsid):
+    for new_row in con.script_cursor(lgs, tsid=DB.Partition(tsid)):
         section_code = new_row.section_code
         section = Section[section_code]
         if section:

@@ -16,16 +16,17 @@ from .dgus import Dgu
 def make_dgus(tsid):
     """create Dgu instances"""
     con = DB.OracleConnection()
+    Dgu.clear()
 
-    for new_row in con.script_cursor(dgs, tsid=tsid):
+    for new_row in con.script_cursor(dgs, tsid=DB.Partition(tsid)):
         Dgu(new_row)
 
-    for new_row in con.script_cursor(rgs, tsid=tsid):
+    for new_row in con.script_cursor(rgs, tsid=DB.Partition(tsid)):
         dgu = Dgu.by_code[new_row.rge_code]
         if dgu:
             dgu.add_dgu_hour_data(new_row)
 
-    for new_row in con.script_cursor(glhs, tsid=tsid):
+    for new_row in con.script_cursor(glhs, tsid=DB.Partition(tsid)):
         dgu = Dgu.by_code[new_row.rge_code]
         if dgu:
             dgu.set_last_hour(new_row)

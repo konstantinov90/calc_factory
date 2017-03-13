@@ -8,6 +8,8 @@ HOURCOUNT = 24
 @ts_manager
 def make_bid_max_prices():
     """create BidMaxPrice instances"""
+    BidMaxPrice.clear()
+
     dummy = [(hour, 0) for hour in range(HOURCOUNT)]
     for bid in Bid:
         dummy = [(bhd.hour, max(bhd.get_hour_max_price(), dummy[bhd.hour][1]))

@@ -27,8 +27,15 @@ PARTICIPANTS_TO_ADD = [(C.SIPR_OWNER_ID, C.SIPR_OWNER_CODE), (464690, 'KRYMITEC'
 def make_dpgs(tsid):
     """create Dpg instances"""
     con = DB.OracleConnection()
+    Dpg.clear()
+    DpgSupply.clear()
+    DpgImpex.clear()
+    DpgDemand.clear()
+    DpgDemandFSK.clear()
+    DpgDemandSystem.clear()
+    DpgDemandLoad.clear()
 
-    for new_row in con.script_cursor(cs, tsid=tsid):
+    for new_row in con.script_cursor(cs, tsid=DB.Partition(tsid)):
         if new_row.is_fsk:
             DpgDemandFSK(new_row)
         elif new_row.is_system:
@@ -36,13 +43,13 @@ def make_dpgs(tsid):
         else:
             DpgDemandLoad(new_row)
 
-    for new_row in con.script_cursor(dds, tsid=tsid):
+    for new_row in con.script_cursor(dds, tsid=DB.Partition(tsid)):
         Dpg.by_id[new_row.dpg_id].add_disqualified_data(new_row)
 
-    for new_row in con.script_cursor(gs, tsid=tsid):
+    for new_row in con.script_cursor(gs, tsid=DB.Partition(tsid)):
         DpgSupply(new_row)
 
-    for new_row in con.script_cursor(imp_s, tsid=tsid):
+    for new_row in con.script_cursor(imp_s, tsid=DB.Partition(tsid)):
         DpgImpex(new_row)
 
 @ts_manager

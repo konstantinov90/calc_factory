@@ -9,9 +9,10 @@ from .peak_so import PeakSO
 def make_peak_so(tsid, tdate):
     """create Settings instances"""
     con = DB.OracleConnection()
+    PeakSO.clear()
     done = False
 
-    for new_row in con.script_cursor(pss, tsid=tsid, tdate=tdate):
+    for new_row in con.script_cursor(pss, tsid=DB.Partition(tsid), tdate=tdate):
         PeakSO(new_row)
         done = True
 

@@ -9,6 +9,7 @@ from .impex_areas import ImpexArea
 def make_impex_areas(tsid):
     """create ImpexArea instances"""
     con = DB.OracleConnection()
+    ImpexArea.clear()
 
-    for new_row in con.script_cursor(ias, tsid=tsid):
+    for new_row in con.script_cursor(ias, tsid=DB.Partition(tsid)):
         ImpexArea(new_row)

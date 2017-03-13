@@ -10,8 +10,9 @@ from .loads import Load
 def make_loads(tsid):
     """create Load instances"""
     con = DB.OracleConnection()
+    Load.clear()
 
-    for new_row in con.script_cursor(rl, tsid=tsid):
+    for new_row in con.script_cursor(rl, tsid=DB.Partition(tsid)):
         load = Load[new_row.consumer_code]
         if not load:
             load = Load(new_row)

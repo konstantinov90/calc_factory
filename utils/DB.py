@@ -30,6 +30,17 @@ ARRAYSIZE = 1000
 #     return decorator
 
 
+class Partition(object):
+    """artificial partition class"""
+    def __init__(self, value):
+        self._value = value
+
+    @property
+    def value(self):
+        """value property"""
+        return '(TS_%i)' % self._value
+
+
 class _DBConnection(object):
     """base DBConnection class"""
     def __init__(self):
@@ -46,19 +57,31 @@ class _DBConnection(object):
     def _replace_trade_session_id(query, input_data):
         """replace trade_session_id in query"""
         # input_data = copy.deepcopy(input_data_src)
+        keys_to_delete = []
+        for key, item in input_data.items():
+            if isinstance(item, Partition):
+                query = query.replace('(&%s)' % key, item.value)
+                keys_to_delete.append(key)
 
-        try:
-            tsid = input_data['tsid']
-            del input_data['tsid']
-        except KeyError:
-            tsid = None
+        for key in keys_to_delete:
+            del input_data[key]
 
-        if tsid:
-            query = query.replace('&tsid', 'TS_' + str(tsid))
-        else:
-            for match in re.finditer(r'(wh_(\w*)\s*partition\s*\(&tsid\))',
-                                     query, flags=re.IGNORECASE):
-                query = query.replace(match.group(1), match.group(2))
+        for match in re.finditer(r'(wh_([\w$]*)\s*partition\s*\(&tsid.*\))',
+                                 query, flags=re.IGNORECASE):
+            query = query.replace(match.group(1), match.group(2))
+
+        # try:
+        #     tsid = input_data['tsid']
+        #     del input_data['tsid']
+        # except KeyError:
+        #     tsid = None
+
+        # if tsid:
+        #     query = query.replace('&tsid', 'TS_' + str(tsid))
+        # else:
+        #     for match in re.finditer(r'(wh_(\w*)\s*partition\s*\(&tsid\))',
+        #                              query, flags=re.IGNORECASE):
+        #         query = query.replace(match.group(1), match.group(2))
         return query, input_data
 
     def commit(self):

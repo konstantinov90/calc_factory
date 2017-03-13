@@ -13,8 +13,9 @@ PRICE_ZONES = (1, 2)
 def make_price_zones(tsid):
     """create PriceZone instances"""
     con = DB.OracleConnection()
+    PriceZone.clear()
 
-    for new_row in con.script_cursor(pzs, tsid=tsid):
+    for new_row in con.script_cursor(pzs, tsid=DB.Partition(tsid)):
         price_zone = PriceZone(new_row)
         for hour in range(HOURCOUNT):
             price_zone.add_price_zone_hour_data(hour)

@@ -3,4 +3,6 @@
 *.asv
 *.csv
 *.log
+*.xls
+*.xlsx
 __pycache__

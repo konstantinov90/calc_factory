@@ -14,11 +14,12 @@ from .gus_hour_data import GuHourData
 def make_gus(tsid):
     """create Gu instances"""
     con = DB.OracleConnection()
+    Gu.clear()
 
-    for new_row in con.script_cursor(gs, tsid=tsid):
+    for new_row in con.script_cursor(gs, tsid=DB.Partition(tsid)):
         Gu(new_row)
 
-    for new_row in con.script_cursor(ns, tsid=tsid):
+    for new_row in con.script_cursor(ns, tsid=DB.Partition(tsid)):
         gu_code = new_row.gu_code
         if not Gu.by_code[gu_code]:
             Gu.from_nblock(new_row)
@@ -46,10 +47,10 @@ def add_gus_vertica(scenario):
         Gu.by_id[new_row.gu_code].add_gu_hour_data(new_row, GuHourData(new_row))
 
     # факторизация заявок ГТПГ
-    # for fuel_type, factor in con.script_cursor(bfs, scenario=scenario):
-    #     for gu in Gu:
-    #         if fuel_type in gu.fuel_type_list:
-    #             gu.bid_factor = factor
+    for fuel_type, factor in con.script_cursor(bfs, scenario=scenario):
+        for gu in Gu:
+            if fuel_type in gu.fuel_type_list:
+                gu.bid_factor = factor
 
     # load turned off blocks from vertica
     # for gu_code, *_ in con.script_cursor(bo_v, scenario=scenario):

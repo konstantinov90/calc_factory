@@ -13,8 +13,9 @@ HOURCOUNT = 24
 def make_nodes(tsid):
     """create Node instances"""
     con = DB.OracleConnection()
+    Node.clear()
 
-    for new_row in con.script_cursor(ns, tsid=tsid):
+    for new_row in con.script_cursor(ns, tsid=DB.Partition(tsid)):
         node = Node[new_row.node_code]
         if not node:
             node = Node(new_row)

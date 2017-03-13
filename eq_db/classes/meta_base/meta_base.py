@@ -36,9 +36,9 @@ class MetaBase(abc.ABCMeta):
         else:
             return len(cls.lst)
 
-    # def clear(cls):
-    #     if cls.key:
-    #         for key in cls.lst.keys():
-    #             cls.lst[key] = {}
-    #     else:
-    #         cls.lst = {}
+    def clear(cls):
+        if cls.key:
+            for key in cls.lst.keys():
+                cls.lst[key] = {}
+        else:
+            cls.lst = {}
