@@ -1,3 +1,4 @@
+"""reports package"""
 import os
 from itertools import cycle
 from datetime import datetime
@@ -10,12 +11,12 @@ def make_report_file(template, worksheet, input_data, out_file):
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     file_path = os.path.join(dir_path, 'make_report_template.vbs')
-    with open(file_path, encoding='utf-8') as fs:
-        vbs_tmp = fs.read()
+    with open(file_path, encoding='utf-8') as file:
+        vbs_tmp = file.read()
 
     tmp_path = os.path.join(dir_path, 'tmp.vbs')
-    with open(tmp_path, 'w') as fs:
-        fs.write(vbs_tmp.format(
+    with open(tmp_path, 'w') as file:
+        file.write(vbs_tmp.format(
             template_name=template,
             worksheet=worksheet,
             data=input_data,
@@ -37,13 +38,11 @@ def generate_report(ora_con, script, template, worksheets, starts, out_file, kwa
     if not len(worksheets) == len(starts) == len(kwargss):
         raise Exception('data errors!')
 
-    N = len(worksheets)
-
     dir_path = os.path.dirname(os.path.realpath(__file__))
     template_path = os.path.join(dir_path, 'templates', template)
     tmp_file = os.path.join(dir_path, template)
     out_files = []
-    for i in range(N):
+    for i in range(len(worksheets)):
         if i % 2:
             out_files.append(tmp_file)
         else:
@@ -73,10 +72,10 @@ def generate_report(ora_con, script, template, worksheets, starts, out_file, kwa
 
         try:
             os.remove(out_file)
-        except:
+        except FileNotFoundError:
             pass
         make_report_file(template, worksheet, data, out_file)
     try:
         os.remove(tmp_file)
-    except:
+    except FileNotFoundError:
         pass

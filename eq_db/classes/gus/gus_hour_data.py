@@ -9,6 +9,7 @@ class GuHourData(object):
         self.state = bool(ns_row.state)
         self.is_sysgen = bool(ns_row.is_sysgen)
         self.changed = False
+        self.delta = False
 
     def __repr__(self):
         return '<GuHourData %i: %i>' % (self.gu_code, self.hour)

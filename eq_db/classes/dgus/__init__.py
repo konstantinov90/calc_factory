@@ -91,7 +91,7 @@ def send_dgus_to_db(ora_con, tdate):
             parent_object_id, fixed_power, begin_date, end_date, trader_type)
             values(:{})
         '''.format(', :'.join(str(i + 1) for i in range(attrs_len))),
-                    data)
+                         data)
 
         curs.executemany('''
             INSERT into rastr_generator (hour, o$pmin, o$pmax, o$pminagg, o$pmaxagg,
@@ -99,4 +99,4 @@ def send_dgus_to_db(ora_con, tdate):
             o$p, o$wmax, o$wmin, o$vgain, o$vdrop, o$num, o$node)
             values(:{})
         '''.format(', :'.join(str(i + 1) for i in range(hour_attrs_len))),
-                    h_data)
+                         h_data)

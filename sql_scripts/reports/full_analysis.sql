@@ -22,7 +22,7 @@ c.tg_ges, c.tg_aes, c.pmin_agg_tes, c.pmin_tes, c.pmax_tes
 from sipr_calculation_result c
 where target_date = :tdate
 and sipr_calc = :sipr_calc
-and scenario = :scenario_code
+and scenario = :scenario
 
 union all
 

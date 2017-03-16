@@ -1,16 +1,13 @@
 """model test module"""
 import os
 import datetime
-from operator import itemgetter, attrgetter
 try:
     import matlab
     import matlab.engine
 except ImportError as ex:
     print(ex)
-import mat4py
-from eq_db import model as m
+from eq_db import model as m, common_mat_preparer as cmp
 from utils import DB
-from utils.csv_comparator import csv_comparator
 from reports import generate_report
 from sql_scripts import report_closed_sections as rcs, report_full_analysis as rfa, \
 report_region_prices as rrp, report_consolidated as rc, report_generators_reloading as rgr
@@ -27,20 +24,20 @@ EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\190'
 COMPARE_DATA = False
 MAKE_REPORTS = True
 
-scenarios = [
-    (datetime.datetime(2016, 2, 2), 44)
+SCENARIOS = [
+    (datetime.datetime(2016, 11, 13), 25)
 ]
 
-scenario_code = 6
-add_note = '_scenario_%i' % scenario_code
+scenario = 4
+add_note = '_scenario_%i' % scenario
 
 
-def main(calc_date, scenario, main_con, additional_note=''):
-    try:
-        [(tsid,)] = main_con.exec_script('''
+def main(calc_date, sipr_calc, main_con, additional_note=''):
+    """main function body"""
+    try: # check SIPR_INIT session
+        [(tsid_init,)] = main_con.exec_script('''
                             SELECT trade_session_id
                             from tsdb2.trade_session
-                            -- where target_Date = to_date('31012017', 'ddmmyyyy')
                             where status = 100
                             and note like 'SIPR_INIT%'
                             and target_date = :calc_date
@@ -48,6 +45,26 @@ def main(calc_date, scenario, main_con, additional_note=''):
     except ValueError:
         print('check SIPR INIT session!')
         raise
+
+    if USE_VERTICA:
+        try: # check vertica data
+            [(scenario_date, future_date)] = DB.VerticaConnection().exec_script('''
+                                                SELECT date_ts, date_model
+                                                from dm_opr.model_scenarios
+                                                where scenario_pk = :scenario
+                                                ''', scenario=sipr_calc)
+        except ValueError:
+            print('something wrong with SIPR calc data %i...' % sipr_calc)
+            raise
+
+        if scenario_date != calc_date.date():
+            raise ValueError('SIPR calc has wrong date! (calc_date = %s, scenario_date = %s)'
+                             % (calc_date.strftime('%Y-%m-%d'), scenario_date.strftime('%Y-%m-%d')))
+
+    cdate_str = calc_date.strftime('%Y-%m-%d')
+    print('%s%s%s' % (('calc_date = %s' % cdate_str) if cdate_str else '', \
+    (', tsid_init = %i' % tsid_init) if tsid_init else '', \
+    (', sipr_calc = %i' % sipr_calc) if USE_VERTICA else ''))
 
     if OPEN_NEW_SESSION and not TEST_RUN:
         # внутреннее копирование сессии
@@ -78,23 +95,23 @@ def main(calc_date, scenario, main_con, additional_note=''):
 
               update trade_session
               set is_main = 0
-              where target_date = :calc_date;
+              where target_date = :future_date;
 
               update trade_session
-              set note = 'SIPR_' || :scenario_string || :additional_note,
+              set note = 'SIPR_' || :sipr_calc || :additional_note,
               date_start = :date_start,
               is_main = 1
               where status = 1;
 
               commit;
-            end;
-            ''', tsid_to_copy=tsid, calc_date=calc_date, date_start=datetime.datetime.now(),
-                scenario_string=str(scenario), additional_note=additional_note)
+            end;''', tsid_to_copy=tsid_init, future_date=future_date,
+                         date_start=datetime.datetime.now(),
+                         sipr_calc=str(sipr_calc), additional_note=additional_note)
             print('session copied and disarchived!')
 
     if not TEST_RUN:
         try: # must be open session for calc_date!
-            [(open_date, open_session)] = main_con.exec_script('''
+            [(open_date, tsid)] = main_con.exec_script('''
                                 SELECT target_date, trade_session_id
                                 from trade_session
                                 where status = 1
@@ -107,32 +124,11 @@ def main(calc_date, scenario, main_con, additional_note=''):
             raise ValueError('open session has wrong date! (calc_date = %s, open_date = %s)'
                              % (calc_date.strftime('%Y-%m-%d'), open_date.strftime('%Y-%m-%d')))
 
+
+
+    m.initialize_model(tsid_init, calc_date)
     if USE_VERTICA:
-        try:
-            [(scenario_date, future_date)] = DB.VerticaConnection().exec_script('''
-                SELECT date_ts, date_model
-                from dm_opr.model_scenarios
-                where scenario_pk = :scenario
-            ''', scenario=scenario)
-        except ValueError:
-            print('something wrong with scenario %i...' % scenario)
-            raise
-
-        if scenario_date != calc_date.date():
-            raise ValueError('scenario has wrong date! (calc_date = %s, scenario_date = %s)'
-                             % (calc_date.strftime('%Y-%m-%d'), scenario_date.strftime('%Y-%m-%d')))
-
-
-    tdate = calc_date.strftime('%Y-%m-%d')
-    print('%s%s%s' % (('tdate = %s' % tdate) if tdate else '', \
-                      (', tsid = %i' % tsid) if tsid else '', \
-                      (', scenario = %i' % scenario) if 'scenario_date' in locals() else ''))
-
-
-    m.initialize_model(tsid, calc_date)
-    if USE_VERTICA:
-        m.augment_model(scenario, calc_date)
-    m.intertwine_model()
+        m.augment_model(sipr_calc, calc_date)
 
     # костыли!!!!!
     if calc_date == datetime.datetime(2016, 2, 2) \
@@ -161,344 +157,31 @@ def main(calc_date, scenario, main_con, additional_note=''):
                 dgu.hour_data[hour].turn_off()
 
     ###########################
+    if not TEST_RUN:
+        m.Setting['Session_Id'].string_value = '_d%s_ts%i_sipr%i' \
+            % (datetime.datetime.now().strftime('%Y%m%d/%H:%M:%S'), tsid, sipr_calc)
 
-    if SEND_TO_DB and not TEST_RUN:
+    m.intertwine_model()
+
+    if SEND_TO_DB:
         m.fill_db(calc_date)
 
-    ia = [tuple(i if i else 0 for i in impex_area.get_impex_area_data())
-          for impex_area in m.ImpexArea
-          if impex_area.get_impex_area_data()[0]]
-
-    pzd = []
-    pz_dr = []
-    for price_zone in m.PriceZone:
-        pzd += price_zone.get_consumption()
-        pz_dr.append(price_zone.get_settings())
-
-    fd = [wsum.get_fuel_data() for wsum in m.Wsumgen]
-
-    eg = []
-    for dgu in m.Dgu:
-        eg += dgu.get_prepared_generator_data()
-
-    lh = [dgu.get_last_hour_data() for dgu in m.Dgu if dgu.get_last_hour_data()]
-
-    cs = []
-    crs = []
-    for dgu_group in m.DguGroup:
-        cs += dgu_group.get_constraint_data()
-        crs += dgu_group.get_dgu_data()
-
-    es = []
-    for dpg in m.DpgSupply:
-        es += dpg.get_distributed_bid()
-
-    ed = []
-    for dpg in m.DpgDemand:
-        ed += dpg.get_distributed_bid()
-
-    eimp = []
-    for dpg in m.DpgImpex:
-        eimp += dpg.get_distributed_bid()
-
-    eq = []
-    pq = []
-    pv = []
-    sw = []
-    sh = []
-    for node in sorted(m.Node, key=attrgetter('code')):
-        eq += node.get_eq_db_nodes_data()
-        pq += node.get_pq_data()
-        pv += node.get_pv_data()
-        sw += node.get_sw_data()
-        sh += node.get_shunt_data()
-
-    el = []
-    for line in m.Line:
-        el += line.get_eq_db_lines_data()
-
-    s = []
-    sl = []
-    si = []
-    sli = []
-    for section in m.Section:
-        s += section.get_section_data()
-        sl += section.get_section_lines_data()
-        si += section.get_section_impex_data()
-        sli += section.get_section_lines_impex_data()
-
-    stngs = [setting.get_settings_data() for setting in m.Setting]
-
-    dr = []
-    for dpg in m.DpgDemand:
-        dr += dpg.get_demand_response_data()
-
-    ps = [peak_so.get_peak_so_data() for peak_so in m.PeakSO]
+    cmp.prepare_data_for_common()
 
     if COMPARE_DATA:
-        ia.sort(key=itemgetter(2, 0, 1))
-        pzd.sort(key=itemgetter(0, 1))
-        fd.sort(key=itemgetter(0, 1))
-        eg.sort(key=itemgetter(1, 0))
-        lh.sort(key=itemgetter(0))
-        cs.sort(key=itemgetter(1, 0))
-        crs.sort(key=itemgetter(1, 0, 2))
-        es.sort(key=itemgetter(5, 0, 6))
-        ed.sort(key=itemgetter(2, 4, 0, 3))
-        eimp.sort(key=itemgetter(1, 0, 3))
-        el.sort(key=itemgetter(1, 2, 3, 0))
-        s.sort(key=itemgetter(1, 0))
-        sl.sort(key=itemgetter(5, 2, 3, 1, 0))
-        si.sort(key=itemgetter(1, 0))
-        sli.sort(key=itemgetter(5, 2, 3, 1, 0))
+        cmp.compare_data(tsid_init)
 
-        csv_comparator(ia, '''
-            SELECT section_id, nvl(region_id, 0), price_zone
-            from tsdb2.wh_eq_db_section_regions partition (&tsid)
-            where section_id != 0
-            order by price_zone, section_id, region_id
-        ''', 'eq_db_section_regions_data.csv', 2, 0, 1, tsid=tsid)
-
-        csv_comparator(pzd, '''
-            SELECT a.hour_num, a.price_zone, a.p_cons_sum_value
-            FROM tsdb2.wh_eq_db_price_zone_sum_values partition (&tsid) a
-            order by hour_num, price_zone
-        ''', 'eq_db_price_zone_sum_values_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(fd, '''
-            SELECT id, gen_id, p_min, p_max, hour_start, hour_end
-            FROM tsdb2.wh_eq_db_fuel partition (&tsid) a
-            order by id, gen_id
-        ''', 'eq_db_fuel_data.csv', 0, 1, tsid=tsid)
-
-        csv_comparator(eg, '''
-            SELECT hour_num, gen_id, p_min, p, ramp_up, ramp_down,
-            pnpr, pvpr, station_type, node
-            from tsdb2.wh_eq_db_generators partition (&tsid)
-            order by gen_id, hour_num
-        ''', 'eq_db_generators_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(lh, '''
-            SELECT gen_id, pgenlasthour
-            from tsdb2.wh_eq_db_generators_data partition (&tsid)
-            order by gen_id
-        ''', 'eq_db_generators_last_hour_data.csv', 0, tsid=tsid)
-
-        csv_comparator(cs, '''
-            SELECT hour_num, group_id, p_max, p_min
-            from tsdb2.wh_eq_db_group_constraints partition (&tsid)
-            where group_id <> 0
-            order by group_id, hour_num
-        ''', 'eq_db_constraints_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(crs, '''
-            SELECT hour_num, group_id, gen_id
-            from tsdb2.wh_eq_db_group_constraint_rges partition (&tsid)
-            where group_id <> 0
-            order by group_id, hour_num, gen_id
-        ''', 'eq_db_constraint_rge_data.csv', 1, 0, 2, tsid=tsid)
-
-        csv_comparator(es, '''
-            SELECT hour_num, node_id, p_max, p_min, cost, gen_id, interval_num,
-            integral_constr_id, nvl(tariff,9999), forced_sm
-            from tsdb2.wh_eq_db_supplies partition (&tsid)
-            where p_max > 1e-10
-
-            union all
-
-            select n$hour, n$node, f$volume, f$volume, 0, n$objectid,
-            -20, 0, 9999, 0
-            from tsdb2.wh_fixedgen_rge partition (&tsid)
-            order by gen_id, hour_num, interval_num
-        ''', 'eq_db_supplies_data.csv', 5, 0, 6, tsid=tsid)
-
-        csv_comparator([e[:1]+e[2:] for e in ed], '''
-            SELECT hour_num, id, interval_num, node_id, volume, price, nvl(is_accepted,0)
-            from tsdb2.wh_eq_db_demands partition (&tsid)
-
-            union all
-
-            select n$hour, n$objectid,
-            case when trader_code in ('PCHITAZN','PAMUREZN') then -55
-                 when is_system = 1 and fed_Station = 1 then -52
-                 when is_system = 0 and fed_station = 1 then -42
-                 when is_gaes = 1 then -32 end interval_num,
-            n$node, f$volume, hr.bid_max_price*1e6, 1
-            from tsdb2.wh_fixedcon_consumer partition (&tsid) f,
-            tsdb2.wh_trader partition (&tsid) t,
-            tsdb2.wh_hour partition (&tsid) hr
-            where t.consumer2 = f.n$objectid
-            and hr.hour = f.n$hour
-
-            order by id, node_id, hour_num, interval_num
-        ''', 'eq_db_demands_data.csv', 1, 3, 0, 2, tsid=tsid)
-
-        csv_comparator(eimp, '''
-            SELECT hour_num, section_number, direction, interval_num, volume, price, is_accepting
-            FROM tsdb2.wh_eq_db_impexbids partition (&tsid) a
-            order by section_number, hour_num, interval_num
-        ''', 'eq_db_impexbids_data.csv', 1, 0, 3, tsid=tsid)
-
-        csv_comparator(eq, '''
-            SELECT hour_num, node_id, u_base, start_u, start_phase, u_rated,
-            region_id, price_zone, nvl(pricezonefixed, -1), is_price_zone
-            FROM tsdb2.wh_eq_db_nodes PARTITION (&tsid)
-            ORDER BY node_id, hour_num
-        ''', 'eq_db_nodes_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(pq, '''
-            SELECT hour_num, node_id, u_base, p_cons_minus_gen,
-            q_cons, q_gen, u_max, u_min, cons, gen
-            from tsdb2.wh_eq_db_nodes_pq partition (&tsid)
-            order by node_id, hour_num
-        ''', 'eq_db_nodes_pq_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(pv, '''
-            SELECT hour_num, node_id, u_base, p_gen, q_cons,
-            q_gen, type, U, q_max, q_min, U_max, u_min, cons, gen
-            FROM tsdb2.wh_eq_db_nodes_pv PARTITION (&tsid)
-            ORDER BY node_id, hour_num
-        ''', 'eq_db_nodes_pv_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(sw, '''
-            SELECT hour_num, node_id, U_base, u_rel, phase_start, P_start,
-            q_max, q_min, is_main_for_dr
-            FROM tsdb2.wh_eq_db_nodes_sw PARTITION (&tsid)
-            ORDER BY node_id, hour_num
-        ''', 'eq_db_nodes_sw_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(sh, '''
-            SELECT hour_num, node_id, U_base, g, b
-            FROM tsdb2.wh_eq_db_shunts PARTITION (&tsid)
-            ORDER BY node_id, hour_num
-        ''', 'eq_db_shunts_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(el, '''
-            SELECT hour_num, node_from_id, node_tO_id, parallel_num, type,
-            u_base, base_coef, r,x,g,b,ktr, lagging, b_begin, b_end
-            FROM tsdb2.wh_eq_db_lines PARTITION (&tsid)
-            ORDER BY node_from_id, node_tO_id, parallel_num, hour_num
-        ''', 'eq_db_lines_data.csv', 1, 2, 3, 0, tsid=tsid)
-
-        csv_comparator(s, '''
-            SELECT hour_num, section_id, p_max_forward, p_max_backward
-            from tsdb2.wh_eq_db_sections partition (&tsid)
-            where is_impex = 0
-            order by section_id, hour_num
-        ''', 'eq_db_sections_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(sl, '''
-            SELECT sl.hour_num, sl.parallel_num, node_from_id, node_to_id,
-            div_coef, sl.section_id
-            from tsdb2.wh_eq_db_section_lines partition (&tsid) sl,
-            tsdb2.wh_eq_db_sections partition (&tsid) s
-            where s.is_impex = 0
-            and s.hour_num = sl.hour_num
-            and s.section_id = sl.section_id
-            order by sl.section_id, node_from_id, node_to_id, sl.parallel_num, sl.hour_num
-        ''', 'eq_db_section_lines_data.csv', 5, 2, 3, 1, 0, tsid=tsid)
-
-        csv_comparator(si, '''
-            SELECT hour_num, section_id, 0
-            from tsdb2.wh_eq_db_sections partition (&tsid)
-            where is_impex = 1
-            order by section_id, hour_num
-        ''', 'eq_db_sections_impex_data.csv', 1, 0, tsid=tsid)
-
-        csv_comparator(sli, '''
-            SELECT sl.hour_num, sl.parallel_num, node_from_id, node_to_id,
-            div_coef, sl.section_id
-            from tsdb2.wh_eq_db_section_lines partition (&tsid) sl,
-            tsdb2.wh_eq_db_sections partition (&tsid) s
-            where s.is_impex = 1
-            and s.hour_num = sl.hour_num
-            and s.section_id = sl.section_id
-            order by sl.section_id, node_from_id, node_to_id, sl.parallel_num, sl.hour_num
-        ''', 'eq_db_section_lines_impex_data.csv', 5, 2, 3, 1, 0, tsid=tsid)
-
-
-    def _hourize(input_data, zero_size = mat4py.ZeroSize(0)):
-        """break data hour-wise"""
-        HOURCOUNT = 24
-        ret_data = []
-        for hour in range(HOURCOUNT):
-            data = [d[1:] for d in input_data if d[0] == hour]
-            ret_data.append([{'InputData': [data] if len(data) > 1 else data if data else zero_size}])
-        return ret_data
-
-    def _hourize_group_constraints(group_data, constraint_data):
-        """break group constraint data hour-wise"""
-        HOURCOUNT = 24
-        ret_data = []
-        for hour in range(HOURCOUNT):
-            data = [d[1:] for d in group_data if d[0] == hour]
-            rges = []
-            for inp_d in data:
-                rges_data = [(d[2],) for d in constraint_data if d[:2] == (hour, inp_d[0])]
-                rges.append([{'InputData': [rges_data]}])
-            ret_data.append([{
-                'InputData': [data],
-                'Rges': rges
-                }])
-        return [ret_data]
-
-    def _transpose(input_data):
-        """transpose cell array"""
-        def aux_gen(data):
-            """aux generator"""
-            length = len(data[0])
-            ret = tuple()
-            for idx in range(length):
-                for row in data:
-                    ret += (row[idx],)
-                    if len(ret) == length:
-                        yield ret
-                        ret = tuple()
-        return [list(aux_gen(input_data))]
-
-    common_file_name = 'common_%s_%s.mat' % ('v' if USE_VERTICA else '1', tdate)
+    common_file_name = 'common_%s_%s.mat' % ('v' if USE_VERTICA else '1', cdate_str)
     print(common_file_name)
 
     if SAVE_MAT_FILE and not TEST_RUN:
-        data_to_load = {
-            'Nodes': _hourize(eq),
-            'NodesPQ': _hourize(pq),
-            'NodesPV': _hourize(pv),
-            'NodesSW': _hourize(sw),
-            'Shunts': _hourize(sh),
-            'Lines': _hourize(el),
-            'GroupConstraints': _hourize_group_constraints(cs, crs),
-            'GroupConstraintsRges': _hourize(crs),
-            'Sections': _hourize(s),
-            'SectionLines': _hourize(sl),
-            'SectionsImpex': _hourize(si),
-            'SectionLinesImpex': _hourize(sli),
-            'SectionRegions': {'InputData': [ia]},
-            'Demands': _hourize(ed),
-            'Supplies': _hourize(es),
-            'ImpexBids': _hourize(eimp, mat4py.ZeroSize(5)),
-            'Generators': _hourize(eg),
-            'PriceZoneDemands': _hourize(pzd),
-            'Fuel': {'InputData': [fd]},
-            'GeneratorsDataLastHour': {'InputData': [lh]},
-            'HourNumbers': [{i} for i in range(24)],
-            'Settings': {'InputData': _transpose(stngs)},
-            'DemandResponse': {'InputData': [dr] if dr else mat4py.ZeroSize(3)},
-            'PeakSo': {'InputData': [ps]},
-            'PriceZoneSettings': {'InputData': [pz_dr]}
-        }
-
-        mat4py.savemat(common_file_name, {
-            'HourData': data_to_load, 'Fuel': data_to_load['Fuel']})
-        # eng.cd(os.getcwd(), nargout=0)
-        # eng.save_mat_file(common_file_name, (data_to_load, data_to_load['Fuel']),
-        #                   ('HourData', 'Fuel'), nargout=0)
+        cmp.save_mat_file(common_file_name)
 
     if CALC_EQUILIBRIUM and not TEST_RUN:
         eng = matlab.engine.start_matlab()
         eng.cd(EQUILIBRIUM_PATH, nargout=0)
         if eng.fn_Run(2, os.path.join(os.getcwd(), common_file_name), nargout=1):
-            print(Exception('Equilbrium error!'))
+            raise Exception('Equilbrium error!')
         eng.fn_Run(3, nargout=1)
         eng.quit()
 
@@ -650,8 +333,8 @@ def main(calc_date, scenario, main_con, additional_note=''):
             ''', date_finish=datetime.datetime.now(), future_date=future_date)
 
     if MAKE_REPORTS and not TEST_RUN:
-        print('fill full analysis')
         with main_con.cursor() as curs:
+            print('fill sipr_calculation_result')
             curs.execute(r'''
             declare
             n_is_main number := 1;
@@ -692,31 +375,136 @@ def main(calc_date, scenario, main_con, additional_note=''):
             end;
             ''', tdate=future_date)
 
-        new_ts = DB.Partition(open_session)
-        old_ts = DB.Partition(tsid)
+            print('fill tmp_sipr_report_generators_rge')
+            curs.execute('''
+            begin
+
+            DELETE from tmp_sipr_report_generators_rge
+            where target_date = :tdate
+            and scenario = :scenario;
+
+            commit;
+
+            INSERT into tmp_sipr_report_generators_rge
+
+            SELECT :tdate, :scenario, 'SIPR_' || :sipr_calc || :additional_note,
+                :tsid_init, :tsid,
+            nvl(new.participant_code, old.participant_code) participant_code,
+            nvl(new.prt_name,old.prt_name) prt_name,
+            nvl(new.station_code, old.station_code) station_code,
+            nvl(old.station_category, new.station_category) station_category,
+            nvl(old.station_type, new.station_type) station_type,
+            nvl(old.name, new.name) name,
+            nvl(old.is_unpriced_zone, new.is_unpriced_zone) is_unpriced_zone,
+            nvl(new.oes, old.oes) oes,
+            nvl(new.gtp_code, old.gtp_code) gtp_code,
+            nvl(new.gtp_name, old.gtp_name) gtp_name,
+            nvl(new.rge_code, old.rge_code) rge_code,
+            nvl(new.hour, old.hour) hour,
+            old.pmin old_pmin, old.pmax old_pmax, old.tg old_tg, old.pr_tg old_pr_tg,
+            new.pmin new_pmin, new.pmax new_pmax, new.tg new_tg, new.pr_tg new_pr_tg,
+            nvl(new.pmin,0) - nvl(old.pmin,0) pmin_diff, nvl(new.pmax,0) - nvl(old.pmax,0) pmax_diff,
+            nvl(new.tg,0) - nvl(old.tg,0) tg_diff,
+            nvl(new.pr_tg,0) - nvl(old.pr_tg,0) diff_pr
+            from (
+                 select rg.hour, st.begin_date,
+                        prt.trader_code participant_code,
+                        prt.full_name prt_name,
+                        st.trader_code station_code,
+                        st.station_category,
+                        decode(st.station_type, 1, 'ТЭС', 2, 'ГЭС', 3, 'АЭС',
+                            4, 'ТЭС', 5, 'СЭС', 6, 'ВЭС') station_type,
+                        nvl(st.full_name, max(gtp.full_name)) name,
+                        gtp.is_unpriced_zone, gtp.oes,
+                        gtp.trader_code gtp_code, gtp.full_name gtp_name,
+                        rg.o$num rge_code, nvl(sum(s.f$volume), 0) tg,
+                        nvl(max(s.f$price), 0) pr_tg,
+                        o$pmin pmin, o$pmax pmax
+                  from
+                  (select * from wh_trader where trade_Session_id = :tsid) st,
+                  (select * from wh_trader where trade_Session_id = :tsid) prt,
+                  (select * from wh_trader where trade_Session_id = :tsid) gtp,
+                  (select * from wh_trader where trade_Session_id = :tsid) rge,
+                  (select * from wh_carana$sout where trade_Session_id = :tsid) s,
+                  (select * from wh_rastr_generator where trade_Session_id = :tsid) rg
+                  where st.trader_id = gtp.dpg_station_id
+                  and prt.trader_id = st.parent_object_id
+                  and gtp.trader_id = rge.parent_object_id
+                  and rge.trader_type = 103
+                  and rge.trader_code = rg.o$num
+                  and s.n$hour(+) = rg.hour
+                  and rg.o$num = s.n$objectid(+)
+                  group by rg.hour, st.begin_date, st.trader_code, prt.trader_code,
+                  prt.full_name, st.full_name, st.station_type, st.station_category,
+                  gtp.is_unpriced_zone, gtp.oes, o$pmin, o$pmax, gtp.trader_code, gtp.full_name,
+                  rg.o$num
+            ) new full join (
+                 select rg.hour, st.begin_date,
+                        prt.trader_code participant_code,
+                        prt.full_name prt_name,
+                        st.trader_code station_code,
+                        st.station_category,
+                        decode(st.station_type, 1, 'ТЭС', 2, 'ГЭС', 3, 'АЭС',
+                            4, 'ТЭС', 5, 'СЭС', 6, 'ВЭС') station_type,
+                        nvl(st.full_name, max(gtp.full_name)) name,
+                        gtp.is_unpriced_zone, gtp.oes,
+                        gtp.trader_code gtp_code, gtp.full_name gtp_name,
+                        rg.o$num rge_code, nvl(sum(s.f$volume), 0) tg,
+                        nvl(max(s.f$price), 0) pr_tg,
+                        o$pmin pmin, o$pmax pmax
+                  from
+                  (select * from wh_trader where trade_Session_id = :tsid_init) st,
+                  (select * from wh_trader where trade_Session_id = :tsid_init) prt,
+                  (select * from wh_trader where trade_Session_id = :tsid_init) gtp,
+                  (select * from wh_trader where trade_Session_id = :tsid_init) rge,
+                  (select * from wh_carana$sout where trade_Session_id = :tsid_init) s,
+                  (select * from wh_rastr_generator where trade_Session_id = :tsid_init) rg
+                  where st.trader_id = gtp.dpg_station_id
+                  and prt.trader_id = st.parent_object_id
+                  and gtp.trader_id = rge.parent_object_id
+                  and rge.trader_type = 103
+                  and rge.trader_code = rg.o$num
+                  and s.n$hour(+) = rg.hour
+                  and rg.o$num = s.n$objectid(+)
+                  group by rg.hour, st.begin_date, st.trader_code, prt.trader_code,
+                  prt.full_name, st.full_name, st.station_type, st.station_category,
+                  gtp.is_unpriced_zone, gtp.oes, o$pmin, o$pmax, gtp.trader_code, gtp.full_name,
+                  rg.o$num
+            ) old
+            on new.station_code = old.station_code
+            and new.rge_code = old.rge_code
+            and new.hour = old.hour;
+
+            commit;
+            end;
+            ''', tdate=calc_date, scenario=scenario, additional_note=add_note,
+                         tsid=tsid, tsid_init=tsid_init, sipr_calc=sipr_calc)
+
+        new_ts = DB.Partition(tsid)
+        old_ts = DB.Partition(tsid_init)
         reports = [
             (rgr, 'generators_reloading.xlsx', 'Лист1', (3, 1),
-                {'tsid': new_ts, 'tsid_init': old_ts}),
+             {'tsid': new_ts, 'tsid_init': old_ts}),
             (rc, 'consolidated_report.xlsx',
-                ('Hourly data_eur', 'Hourly data_eur', 'Hourly data_sib', 'Hourly data_sib'),
-                ((7, 1), (35, 1), (7, 1), (35, 1)),
-                ({'tsid': open_session, 'pz': 1}, {'tsid': tsid, 'pz': 1},
-                 {'tsid': open_session, 'pz': 2}, {'tsid': tsid, 'pz': 2})
+             ('Hourly data_eur', 'Hourly data_eur', 'Hourly data_sib', 'Hourly data_sib'),
+             ((7, 1), (35, 1), (7, 1), (35, 1)),
+             ({'tsid': tsid, 'pz': 1}, {'tsid': tsid_init, 'pz': 1},
+              {'tsid': tsid, 'pz': 2}, {'tsid': tsid_init, 'pz': 2})
             ),
             (rcs, 'closed_sections.xls', 'запертые сечения', (2, 1),
-                {'tsid': new_ts}),
+             {'tsid': new_ts}),
             (rfa, 'full_analysis.xlsx', 'Анализ_new', (3, 1),
-                {'tdate': future_date, 'tdate_init': calc_date.date(),
-                  'sipr_calc': scenario, 'scenario_code': scenario_code}),
+             {'tdate': future_date, 'tdate_init': calc_date.date(),
+              'sipr_calc': sipr_calc, 'scenario': scenario}),
             (rrp, 'region_prices.xlsx', 'БД', (2, 1),
-                {'tsid': new_ts, 'tsid_init': old_ts, 'tdate': future_date})
+             {'tsid': new_ts, 'tsid_init': old_ts, 'tdate': future_date})
         ]
 
         for script, template, worksheet, start, kwargs in reports:
-            filename = 'scenario%i_%s_%s' % (scenario, future_date.strftime('%Y%m%d'), template)
+            filename = 'sipr%i_%s_%s' % (sipr_calc, future_date.strftime('%Y%m%d'), template)
             filename = os.path.join(r'C:\python\calc_factory\reports', filename)
             generate_report(main_con, script, template, worksheet, start, filename, kwargs)
 
 if __name__ == '__main__':
-    for tdate, scenario_num in scenarios:
-        main(tdate, scenario_num, DB.OracleConnection(), add_note)
+    for target_date, scenario_num in SCENARIOS:
+        main(target_date, scenario_num, DB.OracleConnection(), add_note)

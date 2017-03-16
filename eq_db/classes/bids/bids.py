@@ -1,7 +1,7 @@
 """Class Bid."""
 from operator import attrgetter
 from utils.subscriptable import subscriptable
-from utils.printer import print
+from utils.printer import display
 from ..meta_base import MetaBase
 from .bids_hour_data import BidHour
 # from .bids_max_price import BidMaxPrice
@@ -27,11 +27,11 @@ class Bid(object, metaclass=MetaBase):
             self.lst[self.dpg_id] = self
         else:
             self.lst[self.dpg_id] = self
-            print('%s bid reset!' % self.dpg_code)
+            display('%s bid reset!' % self.dpg_code)
         # if self.dpg_code not in self.lst['dpg_code'].keys():
         #     self.lst['dpg_code'][self.dpg_code] = self
         # else:
-        #     print('%s bid reset!' % self.dpg_code)
+        #     display('%s bid reset!' % self.dpg_code)
 
     def __repr__(self):
         return '<Bid %s>' % self.dpg_code

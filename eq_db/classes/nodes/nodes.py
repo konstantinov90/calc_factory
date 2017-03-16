@@ -1,14 +1,14 @@
 """Class Node."""
 from operator import attrgetter
-import constants
+import constants as C
 from ..meta_base import MetaBase
 from .nodes_hour_data import NodeHourData
 
 
 class Node(object, metaclass=MetaBase):
     """class Node"""
-    siberia_balance_node = [0]*constants.HOURCOUNT
-    balance_nodes = [[] for hour in range(constants.HOURCOUNT)]
+    siberia_balance_node = [0]*C.HOURCOUNT
+    balance_nodes = [[] for hour in range(C.HOURCOUNT)]
 
     def __init__(self, ns_row, is_new=False):
         self._hour_data = {}
@@ -125,13 +125,13 @@ class Node(object, metaclass=MetaBase):
         if _hd.is_balance_node() and _hd.is_node_on():
             self.balance_nodes[hour].append(self.code)
         # заполнение псевдо-балансирующего узла Сибири
-        if self.code in constants.siberia_balance_nodes:
+        if self.code in C.siberia_balance_nodes:
             if not self.get_siberia_balance_node(hour):
                 self.set_siberia_balance_node(hour, self.code)
             else:
-                cur_index = constants.siberia_balance_nodes.index(
+                cur_index = C.siberia_balance_nodes.index(
                     self.get_siberia_balance_node(hour))
-                index = constants.siberia_balance_nodes.index(self.code)
+                index = C.siberia_balance_nodes.index(self.code)
                 if index < cur_index:
                     self.set_siberia_balance_node(hour, self.code)
 
@@ -267,7 +267,7 @@ class Node(object, metaclass=MetaBase):
 
             self.sw_data.append((
                 _hd.hour, self.code, self.voltage_class, relative_voltage, 0, -_hd.pn,
-                max(_hd.max_q, -10000), min(_hd.min_q, 10000), self.code == constants.MAIN_NODE_FOR_DR
+                max(_hd.max_q, -10000), min(_hd.min_q, 10000), self.code == C.MAIN_NODE_FOR_DR
             ))
 
     def get_pv_data(self):
@@ -330,10 +330,10 @@ class Node(object, metaclass=MetaBase):
                 if _hd.is_balance_node():  # балансирующий узел
                     price_zone_fixed = price_zone
                 elif self.code == self.get_siberia_balance_node(_hd.hour) or \
-                        self.area_code in constants.fixed_siberia_areas:
-                        # self.code in constants.fixed_siberia_nodes:
+                        self.area_code in C.fixed_siberia_areas:
+                        # self.code in C.fixed_siberia_nodes:
                     price_zone_fixed = 2
-                elif self.area_code in constants.fixed_europe_areas:
+                elif self.area_code in C.fixed_europe_areas:
                     price_zone_fixed = 1
                 else:
                     price_zone_fixed = -1

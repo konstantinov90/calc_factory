@@ -1,6 +1,6 @@
 """Create Station instances."""
 from utils import DB
-from utils.printer import print
+from utils.printer import display
 from utils.trade_session_manager import ts_manager
 from sql_scripts import stations_script as ss
 from sql_scripts import stations_script_v as ss_v
@@ -25,7 +25,7 @@ def add_stations_vertica(scenario):
 
     for new_row in con.script_cursor(ss_v, scenario=scenario):
         if Station[new_row.id]:
-            # print('vertica contains already existing station %s' % new_row.code)
+            # display('vertica contains already existing station %s' % new_row.code)
             # continue
             raise Exception('vertica contains already existing station %s' % new_row.code)
 
@@ -38,7 +38,7 @@ def add_stations_vertica(scenario):
         #         values(:id, :id, :code, :type, :category, :tdate, :tdate, :trader_type)
         #         ''', tdate=kwargs.get('target_date'),
         #             trader_type=STATION_TRADER_TYPE, **new_row._asdict())
-        print(Station(new_row, is_new=True))
+        display(Station(new_row, is_new=True))
 
 @ts_manager
 def send_stations_to_db(ora_con, tdate):

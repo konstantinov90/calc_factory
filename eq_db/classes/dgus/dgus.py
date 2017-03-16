@@ -69,19 +69,30 @@ class Dgu(object, metaclass=MetaBase):
         for _hd in self.hour_data:
             delayed_augment = []
             dgu_state = 0
+            sum_pmin = 0
             for gu_hd in {_gu.hour_data[_hd.hour] for _gu in self.gus if _gu.hour_data}:
-                if gu_hd.changed:
+                if gu_hd.changed or gu_hd.delta:
                     if gu_hd.state:
                         delayed_augment.append(partial(_hd.augment, gu_hd))
                     else:
                         _hd.deplete(gu_hd)
-                else:
+                if not gu_hd.changed:
                     dgu_state += gu_hd.state
+                if gu_hd.state:
+                    sum_pmin = gu_hd.pmin or gu_hd.pmin_t
             if not dgu_state:
                 _hd.turn_off()
 
             for func in delayed_augment:
                 func()
+
+            if dgu_state or delayed_augment:
+                _hd.pmin = max(_hd.pmin, sum_pmin)
+                _hd.pmin_agg = max(_hd.pmin, sum_pmin)
+                _hd.pmin_tech = max(_hd.pmin, sum_pmin)
+                _hd.pmin_heat = max(_hd.pmin, sum_pmin)
+                _hd.pmin_so = max(_hd.pmin, sum_pmin)
+                _hd.p = max(_hd.p, sum_pmin)
 
             if not delayed_augment:
                 if not turned_off:

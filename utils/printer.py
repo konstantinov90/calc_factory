@@ -2,7 +2,7 @@
 import sys
 
 
-def print(text):
+def display(text):
     """redefine built-in print"""
-    sys.stdout.write('\r%s\n' % text)
+    sys.stdout.write('\r%s\n' % str(text))
     sys.stdout.flush()
