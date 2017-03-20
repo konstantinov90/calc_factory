@@ -5,7 +5,10 @@ from operator import attrgetter
 FIELDS_TO_INSERT = '''hour kg
                      p pmax pmin pmin_agg pmin_so kg_min kg_reg
                      pmin_heat pmin_tech'''
+ATG = attrgetter(*FIELDS_TO_INSERT.split())
 KGDPGRGE = namedtuple('kg_dpg_rge_insert', FIELDS_TO_INSERT)
+ATG_PMIN = attrgetter(*'pmin_tech pmin_heat pmin_so'.split())
+ATG_PMAX = attrgetter(*'pmax_tech pmax_heat pmax_so'.split())
 
 
 class DguHourData(object):
@@ -29,7 +32,21 @@ class DguHourData(object):
 
     def get_insert_data(self):
         """get tuple to insert data to DB"""
-        return KGDPGRGE(*attrgetter(*FIELDS_TO_INSERT.split())(self))
+        return KGDPGRGE(*ATG(self))
+
+    def set_range_agg(self, pmin_agg, pmax_agg):
+        """change range with new agg range"""
+        if not pmax_agg:
+            self.turn_off()
+        else:
+            self.pmin_agg, self.pmax_agg = pmin_agg, pmax_agg
+            self.pmin = max([self.pmin_agg] + [pmin for pmin in ATG_PMIN(self) if pmin])
+            self.pmax = min([self.pmax_agg] + [pmax for pmax in ATG_PMAX(self) if pmax])
+            self.pmin = min(self.pmax, self.pmin)
+            if self.p > self.pmax:
+                self.p = self.pmax
+            elif self.p < self.pmin:
+                self.p = self.pmin
 
     def augment(self, _hd):
         """augment DguHourData by GuHourData"""

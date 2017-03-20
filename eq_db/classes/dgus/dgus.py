@@ -62,6 +62,20 @@ class Dgu(object, metaclass=MetaBase):
     #                 _hd.deplete(gu.hour_data[_hd.hour])
 
     def modify_state(self):
+        """modify rge range"""
+        if self.dpg.is_unpriced_zone or self.dpg.station.type == C.HYDROSTATIONTYPE:
+            return
+        gus = list({gu for gu in self.gus if gu.hour_data})
+        if any(hd.changed for gu in gus for hd in gu.hour_data):
+            for _hd in self.hour_data:
+                gu_hds = [_gu.hour_data[_hd.hour] for _gu in gus]
+                pmax = sum(((hd.pmax + hd.delta_pmax) or gus[i].avg_pmax or hd.pmax_t) * hd.state \
+                            for i, hd in enumerate(gu_hds))
+                pmin = sum(((hd.pmin + hd.delta_pmin) or gus[i].avg_pmin or hd.pmin_t) * hd.state \
+                            for i, hd in enumerate(gu_hds))
+                _hd.set_range_agg(pmin, pmax)
+
+    def modify_state_old(self):
         """set instance to remove"""
         if self.dpg.is_unpriced_zone or self.dpg.station.type == C.HYDROSTATIONTYPE:
             return

@@ -37,8 +37,9 @@ class MetaBase(abc.ABCMeta):
             return len(cls.lst)
 
     def clear(cls):
+        """delete all constructed instances"""
         if cls.key:
-            for key in cls.lst.keys():
+            for key in cls.lst:
                 cls.lst[key] = {}
         else:
             cls.lst = {}

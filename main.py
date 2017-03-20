@@ -13,8 +13,8 @@ from sql_scripts import report_closed_sections as rcs, report_full_analysis as r
 report_region_prices as rrp, report_consolidated as rc, report_generators_reloading as rgr
 
 
-TEST_RUN = True
-OPEN_NEW_SESSION = False
+TEST_RUN = False
+OPEN_NEW_SESSION = True
 USE_VERTICA = True
 SEND_TO_DB = True
 SAVE_MAT_FILE = True
@@ -25,10 +25,19 @@ COMPARE_DATA = False
 MAKE_REPORTS = True
 
 SCENARIOS = [
-    (datetime.datetime(2016, 11, 13), 25)
+    (datetime.datetime(2016, 1, 21), 201),
+    (datetime.datetime(2016, 2, 2), 202),
+    (datetime.datetime(2016, 2, 13), 203),
+    (datetime.datetime(2016, 3, 20), 204),
+    (datetime.datetime(2016, 4, 14), 205),
+    (datetime.datetime(2016, 7, 7), 206),
+    (datetime.datetime(2016, 8, 1), 207),
+    (datetime.datetime(2016, 8, 20), 208),
+    (datetime.datetime(2016, 10, 10), 209),
+    (datetime.datetime(2016, 11, 13), 210)
 ]
 
-scenario = 4
+scenario = 2
 add_note = '_scenario_%i' % scenario
 
 
@@ -150,7 +159,7 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
         for _hd in m.Section[5072].hour_data:
             _hd.p_max = 2700
 
-    if 'scenario_5' in add_note:
+    if scenario == 5:
         for code in (12010, 12070):
             dgu = m.Dgu.by_code[code]
             for hour in range(8):
@@ -159,11 +168,11 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
     ###########################
     if not TEST_RUN:
         m.Setting['Session_Id'].string_value = '_d%s_ts%i_sipr%i' \
-            % (datetime.datetime.now().strftime('%Y%m%d/%H:%M:%S'), tsid, sipr_calc)
+            % (datetime.datetime.now().strftime('%Y%m%d%H%M%S'), tsid, sipr_calc)
 
     m.intertwine_model()
 
-    if SEND_TO_DB:
+    if SEND_TO_DB and not TEST_RUN:
         m.fill_db(calc_date)
 
     cmp.prepare_data_for_common()
@@ -477,14 +486,14 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
 
             commit;
             end;
-            ''', tdate=calc_date, scenario=scenario, additional_note=add_note,
+            ''', tdate=future_date, scenario=scenario, additional_note=add_note,
                          tsid=tsid, tsid_init=tsid_init, sipr_calc=sipr_calc)
 
         new_ts = DB.Partition(tsid)
         old_ts = DB.Partition(tsid_init)
         reports = [
             (rgr, 'generators_reloading.xlsx', 'Лист1', (3, 1),
-             {'tsid': new_ts, 'tsid_init': old_ts}),
+             {'tsid': tsid, 'tsid_init': tsid_init, 'tdate': future_date}),
             (rc, 'consolidated_report.xlsx',
              ('Hourly data_eur', 'Hourly data_eur', 'Hourly data_sib', 'Hourly data_sib'),
              ((7, 1), (35, 1), (7, 1), (35, 1)),

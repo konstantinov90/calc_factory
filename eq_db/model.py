@@ -110,6 +110,7 @@ def intertwine_model():
         # try:
             # for gu in gu_lst:
         unit.set_parent_dgu(Dgu)
+        unit.recalculate()
         # except:
         #     print(gu)
 

@@ -15,6 +15,12 @@ forced_smooth_participants = (240113, 464690, 464692)
 
 bid_factor_priority = {0:5, 1:3, 2:4}
 
+dependant_gus = [
+    {'base': (300991, 300992), 'dep': 300993},
+    {'base': (300994, 300995), 'dep': 300996},
+    {'base': (500586, 500587), 'dep': 500588}
+]
+
 UNPRICED_AREA = {'PCHITAZN', 'PAMUREZN'}
 UNPRICED_AREA_INTERVAL = -55
 FED_STATION_INTERVAL = -52

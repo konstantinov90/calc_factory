@@ -83,14 +83,14 @@ class Line(object, metaclass=MetaBase):
         """get Dpg instance by code"""
         return Line['nodes', item]
 
-    @classmethod
-    def clear(cls):
-        if cls.key:
-            for key in cls.lst.keys():
-                cls.lst[key] = {}
-        else:
-            cls.lst = {}
-        cls.lines_index = {}
+    # @classmethod
+    # def clear(cls):
+    #     if cls.key:
+    #         for key in cls.lst.keys():
+    #             cls.lst[key] = {}
+    #     else:
+    #         cls.lst = {}
+    #     cls.lines_index = {}
 
     def __repr__(self):
         return '<Line %i -> %i npar = %i>' \

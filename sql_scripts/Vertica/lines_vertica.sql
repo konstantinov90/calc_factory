@@ -1,8 +1,8 @@
 select
-case when flip = 1 then branch.node_code_to else branch.node_code_from end f1,
-case when flip = 1 then branch.node_code_from else branch.node_code_to end t1,
+branch.node_code_from f1,
+branch.node_code_to t1,
 branch.branch_num as n_par,
-case when flip = 1 then 1/branch.kt else branch.kt end kt,
+branch.kt kt,
 0 as kt_im,
 0 as div,
 branch.branch_type,
@@ -35,12 +35,7 @@ b.branch_type,
 0 as B_from,
 0 as B_to,
 0 as area,
-0 as losses,
-case when (node_code_from = 532198 and node_code_to = 1200019) or
-(node_code_from = 1200220 and node_code_to = 1200122) or
-(node_code_from = 510684 and node_code_to = 510685) or
-(node_code_from = 1000722 and node_code_to = 1000793)
-then 1 else 0 end as flip
+0 as losses
 from
 (
   select 0 as hour from dual union all

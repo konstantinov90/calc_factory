@@ -81,56 +81,56 @@ def add_gus_vertica(scenario):
         # except TypeError:
         #     print('unable to access nonexistent Gu %i!' % gu_code)
 
-    dependant_gus = [
-        {'base': (300991, 300992), 'dep': 300993},
-        {'base': (300994, 300995), 'dep': 300996},
-        {'base': (500586, 500587), 'dep': 500588}
-    ]
-
-    for g_unit in Gu:
-        if not sum(_hd.changed for _hd in g_unit.hour_data) \
-           or g_unit.code in [_['dep'] for _ in dependant_gus]:
-            continue
-        sum_pmax = sum(_hd.pmax * (not _hd.state if _hd.changed else _hd.state)
-                       for _hd in g_unit.hour_data)
-        sum_pmin = sum(_hd.pmin * (not _hd.state if _hd.changed else _hd.state)
-                       for _hd in g_unit.hour_data)
-        sum_state = sum(not _hd.state if _hd.changed else _hd.state
-                        for _hd in g_unit.hour_data)
-        avg_pmax = sum_pmax / sum_state if sum_state else sum_state
-        avg_pmin = sum_pmin / sum_state if sum_state else sum_state
-        for _hd in g_unit.hour_data:
-            prev_state = not _hd.state if _hd.changed else _hd.state
-            pmax_hour = _hd.pmax * prev_state
-            avg_pmax_hour = avg_pmax * prev_state
-            pmin_hour = _hd.pmin * prev_state
-            avg_pmin_hour = avg_pmin * prev_state
-            if abs(pmax_hour - avg_pmax_hour) > 0.2 * avg_pmax_hour:
-                print(g_unit.code, _hd.hour, avg_pmax, abs(pmax_hour - avg_pmax_hour), 0.2 * avg_pmax_hour)
-                _hd.pmax_t = avg_pmax_hour - pmax_hour
-                _hd.pmin_t = avg_pmin_hour - pmin_hour
-                _hd.delta = True
-
-    for case in dependant_gus:
-        base_gus_hour_data = []
-        for code in case['base']:
-            (g_unit,) = Gu.by_code[code]
-            base_gus_hour_data.append(g_unit.hour_data)
-
-        (target,) = Gu.by_code[case['dep']]
-
-        for _hds in zip(*base_gus_hour_data):
-            hour = _hds[0].hour
-            ratio = sum(hd.state for hd in _hds) / len(_hds)
-            target_hd = target.hour_data[hour]
-            if not target_hd.state and target_hd.changed:
-                target_hd.pmax_t = - target_hd.pmax
-            else:
-                target_hd.changed = any(_hd.changed for _hd in _hds)
-                target_hd.state = bool(ratio)
-                if target_hd.state:
-                    target_hd.pmax_t = math.ceil(target_hd.pmax_t * ratio) - target_hd.pmax
-                    target_hd.pmin_t = math.ceil(target_hd.pmin_t * ratio) - target_hd.pmin
-                    target_hd.delta = True
-                else:
-                    target_hd.pmax_t = target_hd.pmax
+    # dependant_gus = [
+    #     {'base': (300991, 300992), 'dep': 300993},
+    #     {'base': (300994, 300995), 'dep': 300996},
+    #     {'base': (500586, 500587), 'dep': 500588}
+    # ]
+    #
+    # for g_unit in Gu:
+    #     if not sum(_hd.changed for _hd in g_unit.hour_data) \
+    #        or g_unit.code in [_['dep'] for _ in dependant_gus]:
+    #         continue
+    #     sum_pmax = sum(_hd.pmax * (not _hd.state if _hd.changed else _hd.state)
+    #                    for _hd in g_unit.hour_data)
+    #     sum_pmin = sum(_hd.pmin * (not _hd.state if _hd.changed else _hd.state)
+    #                    for _hd in g_unit.hour_data)
+    #     sum_state = sum(not _hd.state if _hd.changed else _hd.state
+    #                     for _hd in g_unit.hour_data)
+    #     avg_pmax = sum_pmax / sum_state if sum_state else sum_state
+    #     avg_pmin = sum_pmin / sum_state if sum_state else sum_state
+    #     for _hd in g_unit.hour_data:
+    #         prev_state = not _hd.state if _hd.changed else _hd.state
+    #         pmax_hour = _hd.pmax * prev_state
+    #         avg_pmax_hour = avg_pmax * prev_state
+    #         pmin_hour = _hd.pmin * prev_state
+    #         avg_pmin_hour = avg_pmin * prev_state
+    #         if abs(pmax_hour - avg_pmax_hour) > 0.2 * avg_pmax_hour:
+    #             print(g_unit.code, _hd.hour, avg_pmax, abs(pmax_hour - avg_pmax_hour), 0.2 * avg_pmax_hour)
+    #             _hd.pmax_t = avg_pmax_hour - pmax_hour
+    #             _hd.pmin_t = avg_pmin_hour - pmin_hour
+    #             _hd.delta = True
+    #
+    # for case in dependant_gus:
+    #     base_gus_hour_data = []
+    #     for code in case['base']:
+    #         (g_unit,) = Gu.by_code[code]
+    #         base_gus_hour_data.append(g_unit.hour_data)
+    #
+    #     (target,) = Gu.by_code[case['dep']]
+    #
+    #     for _hds in zip(*base_gus_hour_data):
+    #         hour = _hds[0].hour
+    #         ratio = sum(hd.state for hd in _hds) / len(_hds)
+    #         target_hd = target.hour_data[hour]
+    #         if not target_hd.state and target_hd.changed:
+    #             target_hd.pmax_t = - target_hd.pmax
+    #         else:
+    #             target_hd.changed = any(_hd.changed for _hd in _hds)
+    #             target_hd.state = bool(ratio)
+    #             if target_hd.state:
+    #                 target_hd.pmax_t = math.ceil(target_hd.pmax_t * ratio) - target_hd.pmax
+    #                 target_hd.pmin_t = math.ceil(target_hd.pmin_t * ratio) - target_hd.pmin
+    #                 target_hd.delta = True
+    #             else:
+    #                 target_hd.pmax_t = target_hd.pmax
