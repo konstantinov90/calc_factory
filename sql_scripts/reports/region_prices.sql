@@ -32,6 +32,7 @@ from (
              AND t.region_code = r.region_code
              AND NVL(t.is_unpriced_zone, 0) = 0
              AND NVL(t.is_fsk, 0) = 0
+             and NVL(t.is_impex, 0) = 0
            GROUP BY t.price_zone_code, ddh.target_date, r.region_name, r.region_code
     ) n full join (
          SELECT   t.price_zone_code, ddh.target_date,
@@ -49,6 +50,7 @@ from (
              AND t.region_code = r.region_code
              AND NVL(t.is_unpriced_zone, 0) = 0
              AND NVL(t.is_fsk, 0) = 0
+             and NVL(t.is_impex, 0) = 0
            GROUP BY t.price_zone_code, ddh.target_date, r.region_name, r.region_code
     ) o
     on n.price_zone_code = o.price_zone_code

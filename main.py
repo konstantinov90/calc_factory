@@ -1,12 +1,10 @@
 """model test module"""
 import os
 import datetime
-try:
-    import matlab
-    import matlab.engine
-except ImportError as ex:
-    print(ex)
+import shutil
+import settings as S
 from eq_db import model as m, common_mat_preparer as cmp
+from equil_service import run_equilibrium
 from utils import DB
 from reports import generate_report
 from sql_scripts import report_closed_sections as rcs, report_full_analysis as rfa, \
@@ -20,24 +18,25 @@ SEND_TO_DB = True
 SAVE_MAT_FILE = True
 CALC_EQUILIBRIUM = True
 CALC_TO_FINISH = True
-EQUILIBRIUM_PATH = r'\\vm-tsa-app-brown\d$\MATLAB\190'
 COMPARE_DATA = False
 MAKE_REPORTS = True
 
+sipr_calc_length = 100
+
 SCENARIOS = [
-    (datetime.datetime(2016, 1, 21), 201),
-    (datetime.datetime(2016, 2, 2), 202),
-    (datetime.datetime(2016, 2, 13), 203),
-    (datetime.datetime(2016, 3, 20), 204),
-    (datetime.datetime(2016, 4, 14), 205),
-    (datetime.datetime(2016, 7, 7), 206),
-    (datetime.datetime(2016, 8, 1), 207),
-    (datetime.datetime(2016, 8, 20), 208),
-    (datetime.datetime(2016, 10, 10), 209),
-    (datetime.datetime(2016, 11, 13), 210)
+    (datetime.datetime(2016, 1, 21), 401),
+    (datetime.datetime(2016, 2, 2), 402),
+    (datetime.datetime(2016, 2, 13), 403),
+    (datetime.datetime(2016, 3, 20), 404),
+    (datetime.datetime(2016, 4, 14), 405),
+    (datetime.datetime(2016, 7, 7), 406),
+    (datetime.datetime(2016, 8, 1), 407),
+    (datetime.datetime(2016, 8, 20), 408),
+    (datetime.datetime(2016, 10, 10), 409),
+    (datetime.datetime(2016, 11, 13), 410)
 ]
 
-scenario = 2
+scenario = 5
 add_note = '_scenario_%i' % scenario
 
 
@@ -56,12 +55,13 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
         raise
 
     if USE_VERTICA:
+        vertica_con = DB.VerticaConnection()
         try: # check vertica data
-            [(scenario_date, future_date)] = DB.VerticaConnection().exec_script('''
-                                                SELECT date_ts, date_model
-                                                from dm_opr.model_scenarios
-                                                where scenario_pk = :scenario
-                                                ''', scenario=sipr_calc)
+            [(scenario_date, future_date)] = vertica_con.exec_script('''
+                                            SELECT date_ts, date_model
+                                            from dm_opr.model_scenarios
+                                            where scenario_pk = :sipr_calc
+                                            ''', sipr_calc=sipr_calc)
         except ValueError:
             print('something wrong with SIPR calc data %i...' % sipr_calc)
             raise
@@ -115,7 +115,8 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
               commit;
             end;''', tsid_to_copy=tsid_init, future_date=future_date,
                          date_start=datetime.datetime.now(),
-                         sipr_calc=str(sipr_calc), additional_note=additional_note)
+                         sipr_calc='{}{:02}'.format(scenario, sipr_calc % sipr_calc_length),
+                         additional_note=additional_note)
             print('session copied and disarchived!')
 
     if not TEST_RUN:
@@ -187,12 +188,7 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
         cmp.save_mat_file(common_file_name)
 
     if CALC_EQUILIBRIUM and not TEST_RUN:
-        eng = matlab.engine.start_matlab()
-        eng.cd(EQUILIBRIUM_PATH, nargout=0)
-        if eng.fn_Run(2, os.path.join(os.getcwd(), common_file_name), nargout=1):
-            raise Exception('Equilbrium error!')
-        eng.fn_Run(3, nargout=1)
-        eng.quit()
+        run_equilibrium(os.path.join(os.getcwd(), common_file_name))
 
     if CALC_TO_FINISH and not TEST_RUN:
         with main_con.cursor() as curs:
@@ -341,6 +337,15 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
             end;
             ''', date_finish=datetime.datetime.now(), future_date=future_date)
 
+            if USE_VERTICA:
+                with vertica_con.cursor()  as curs:
+                    curs.execute('''
+                        UPDATE dm_opr.model_scenarios
+                        set trade_session_id = {tsid}
+                        where scenario_pk = {sipr_calc}
+                    '''.format(tsid=tsid, sipr_calc=sipr_calc))
+                    vertica_con.commit()
+
     if MAKE_REPORTS and not TEST_RUN:
         with main_con.cursor() as curs:
             print('fill sipr_calculation_result')
@@ -389,7 +394,7 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
             begin
 
             DELETE from tmp_sipr_report_generators_rge
-            where target_date = :tdate
+            where sipr_calc = :sipr_calc
             and scenario = :scenario;
 
             commit;
@@ -414,7 +419,8 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
             new.pmin new_pmin, new.pmax new_pmax, new.tg new_tg, new.pr_tg new_pr_tg,
             nvl(new.pmin,0) - nvl(old.pmin,0) pmin_diff, nvl(new.pmax,0) - nvl(old.pmax,0) pmax_diff,
             nvl(new.tg,0) - nvl(old.tg,0) tg_diff,
-            nvl(new.pr_tg,0) - nvl(old.pr_tg,0) diff_pr
+            nvl(new.pr_tg,0) - nvl(old.pr_tg,0) diff_pr,
+            :sipr_calc
             from (
                  select rg.hour, st.begin_date,
                         prt.trader_code participant_code,
@@ -487,7 +493,8 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
             commit;
             end;
             ''', tdate=future_date, scenario=scenario, additional_note=add_note,
-                         tsid=tsid, tsid_init=tsid_init, sipr_calc=sipr_calc)
+                         tsid=tsid, tsid_init=tsid_init,
+                         sipr_calc='{}{:02}'.format(scenario, sipr_calc % sipr_calc_length))
 
         new_ts = DB.Partition(tsid)
         old_ts = DB.Partition(tsid_init)
@@ -510,9 +517,15 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
         ]
 
         for script, template, worksheet, start, kwargs in reports:
-            filename = 'sipr%i_%s_%s' % (sipr_calc, future_date.strftime('%Y%m%d'), template)
-            filename = os.path.join(r'C:\python\calc_factory\reports', filename)
-            generate_report(main_con, script, template, worksheet, start, filename, kwargs)
+            filename = 'sipr{}{:02}_{}_{}'.format(
+                scenario, sipr_calc % sipr_calc_length, future_date.strftime('%Y%m%d'), template)
+            file_path = os.path.join(r'C:\python\calc_factory\reports', filename)
+            generate_report(main_con, script, template, worksheet, start, file_path, kwargs)
+            reports_path = os.path.join(S.REPORTS_PATH, \
+                    'sipr{}{:02}'.format(scenario, sipr_calc % sipr_calc_length))
+            if not os.path.isdir(reports_path):
+                os.mkdir(reports_path)
+            shutil.copy(file_path, os.path.join(reports_path, filename))
 
 if __name__ == '__main__':
     for target_date, scenario_num in SCENARIOS:

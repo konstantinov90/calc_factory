@@ -6,3 +6,11 @@
 *.xls
 *.xlsx
 __pycache__
+cplex/
+EquilBuildProject_mcr/
+out/
+equil_service/versions.info
+settings.xml
+*.ctf
+*.dll
+*.exe
