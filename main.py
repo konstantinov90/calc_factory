@@ -2,6 +2,7 @@
 import os
 import datetime
 import shutil
+from itertools import product
 import settings as S
 from eq_db import model as m, common_mat_preparer as cmp
 from equil_service import run_equilibrium
@@ -23,25 +24,26 @@ MAKE_REPORTS = True
 
 sipr_calc_length = 100
 
-SCENARIOS = [
-    (datetime.datetime(2016, 1, 21), 401),
-    (datetime.datetime(2016, 2, 2), 402),
-    (datetime.datetime(2016, 2, 13), 403),
-    (datetime.datetime(2016, 3, 20), 404),
-    (datetime.datetime(2016, 4, 14), 405),
-    (datetime.datetime(2016, 7, 7), 406),
-    (datetime.datetime(2016, 8, 1), 407),
-    (datetime.datetime(2016, 8, 20), 408),
-    (datetime.datetime(2016, 10, 10), 409),
-    (datetime.datetime(2016, 11, 13), 410)
+SCENARIOS = [6, 7]
+
+CALCS = [
+    # (datetime.datetime(2016, 1, 21), 1),
+    (datetime.datetime(2016, 2, 2), 2),
+    (datetime.datetime(2016, 2, 13), 3),
+    (datetime.datetime(2016, 3, 20), 4),
+    (datetime.datetime(2016, 4, 14), 5),
+    (datetime.datetime(2016, 7, 7), 6),
+    (datetime.datetime(2016, 8, 1), 7),
+    # (datetime.datetime(2016, 8, 20), 8),
+    (datetime.datetime(2016, 10, 10), 9),
+    (datetime.datetime(2016, 11, 13), 10)
 ]
 
-scenario = 5
-add_note = '_scenario_%i' % scenario
 
-
-def main(calc_date, sipr_calc, main_con, additional_note=''):
+def main(calc_date, sipr_calc, main_con, scenario):
     """main function body"""
+    additional_note = '_scenario_%i' % scenario
+
     try: # check SIPR_INIT session
         [(tsid_init,)] = main_con.exec_script('''
                             SELECT trade_session_id
@@ -492,7 +494,7 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
 
             commit;
             end;
-            ''', tdate=future_date, scenario=scenario, additional_note=add_note,
+            ''', tdate=future_date, scenario=scenario, additional_note=additional_note,
                          tsid=tsid, tsid_init=tsid_init,
                          sipr_calc='{}{:02}'.format(scenario, sipr_calc % sipr_calc_length))
 
@@ -528,5 +530,29 @@ def main(calc_date, sipr_calc, main_con, additional_note=''):
             shutil.copy(file_path, os.path.join(reports_path, filename))
 
 if __name__ == '__main__':
-    for target_date, scenario_num in SCENARIOS:
-        main(target_date, scenario_num, DB.OracleConnection(), add_note)
+    with DB.OracleConnection().cursor() as cursor:
+        cursor.execute('''
+        begin
+            UPDATE loader_out_tab
+            set for_main_eq = 0
+            where code = 'run CONVERTOUT1';
+
+            commit;
+        end;
+        ''')
+    try:
+        for (target_date, sipr), scen in product(CALCS, SCENARIOS):
+            main(target_date, sipr + sipr_calc_length * scen, DB.OracleConnection(), scen)
+    except Exception:
+        raise
+    finally:
+        with DB.OracleConnection().cursor() as cursor:
+            cursor.execute('''
+            begin
+                UPDATE loader_out_tab
+                set for_main_eq = 1
+                where code = 'run CONVERTOUT1';
+
+                commit;
+            end;
+            ''')
